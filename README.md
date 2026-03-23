@@ -52,11 +52,27 @@ On first run, a QR code will appear in the terminal — scan it with WhatsApp to
 
 ## Running 24/7
 
-To keep the bot running around the clock, you need a server. The project includes a Dockerfile for easy deployment:
+To keep the bot running around the clock, you need a server. The project includes a Dockerfile for easy deployment.
+
+Since the project directory gets wiped on every deploy, **do not place your `.env` inside the project folder**. Instead, store it in a separate location on the server:
+
+```bash
+mkdir -p ~/unibot-env
+cp .env ~/unibot-env/.env
+chmod 600 ~/unibot-env/.env
+```
+
+Then build and run:
 
 ```bash
 docker build -t unibot .
-docker run --env-file .env unibot
+docker run -d --env-file ~/unibot-env/.env unibot
+```
+
+If you are using the provided `deploy.sh` script, make sure to update the `REPO_SSH` variable at the top of the file to point to your own repository:
+
+```bash
+REPO_SSH="git@github.com:your-username/your-repo.git"
 ```
 
 ## Deprecated
