@@ -15,6 +15,9 @@ echo "📥 Cloning the repository again..."
 git clone --depth=1 $REPO_SSH
 cd $APP_DIR || { echo "❌ Failed to enter the project directory!"; exit 1; }
 
+echo "🔧 Fixing line endings..."
+find cmd -name "*.sh" -exec sed -i 's/\r//' {} \;
+
 echo "🐳 Building the Docker image..."
 <<<<<<< HEAD
 docker build -t $IMAGE_NAME:latest .
