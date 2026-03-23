@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Fixes .env file for Docker compatibility:
-# - Collapses multi-line JSON values into a single line
-# - Removes surrounding quotes from JSON values if present
+# - Strips surrounding quotes from all values (Docker --env-file doesn't strip them)
+# - Collapses multi-line JSON values into a single minified line
 
 ENV_FILE="${1:-$HOME/unibot-env/.env}"
 
@@ -16,7 +16,6 @@ echo "🔧 Fixing $ENV_FILE ..."
 python3 - "$ENV_FILE" <<'EOF'
 import sys
 import json
-import re
 
 path = sys.argv[1]
 
@@ -30,7 +29,7 @@ i = 0
 while i < len(lines):
     line = lines[i]
 
-    # Skip empty lines and comments
+    # Preserve empty lines and comments
     if not line.strip() or line.strip().startswith("#"):
         result.append(line)
         i += 1
@@ -44,26 +43,28 @@ while i < len(lines):
     key, _, value = line.partition("=")
     value = value.strip()
 
-    # Detect start of a multi-line JSON value
-    if value in ("{", "[") or (value.startswith(("{", "[")) and value.count("{") != value.count("}")) :
-        collected = value
-        depth = collected.count("{") + collected.count("[") - collected.count("}") - collected.count("]")
+    # Collect multi-line values (e.g. JSON spanning multiple lines)
+    depth = value.count("{") + value.count("[") - value.count("}") - value.count("]")
+    while depth > 0 and i + 1 < len(lines):
         i += 1
-        while i < len(lines) and depth > 0:
-            next_line = lines[i].strip()
-            collected += " " + next_line
-            depth += next_line.count("{") + next_line.count("[")
-            depth -= next_line.count("}") + next_line.count("]")
-            i += 1
-        # Minify the JSON
+        next_line = lines[i].strip()
+        value += " " + next_line
+        depth += next_line.count("{") + next_line.count("[")
+        depth -= next_line.count("}") + next_line.count("]")
+
+    # Strip surrounding single or double quotes
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        value = value[1:-1]
+
+    # If value looks like JSON, minify it
+    if value.startswith(("{", "[")):
         try:
-            minified = json.dumps(json.loads(collected), separators=(",", ":"))
+            value = json.dumps(json.loads(value), separators=(",", ":"))
         except json.JSONDecodeError:
-            minified = collected  # leave as-is if not valid JSON
-        result.append(f"{key}={minified}")
-    else:
-        result.append(line)
-        i += 1
+            pass  # leave as-is if not valid JSON
+
+    result.append(f"{key}={value}")
+    i += 1
 
 with open(path, "w") as f:
     f.write("\n".join(result) + "\n")

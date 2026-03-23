@@ -18,6 +18,9 @@ cd $APP_DIR || { echo "❌ Failed to enter the project directory!"; exit 1; }
 echo "🔧 Fixing line endings..."
 find cmd -name "*.sh" -exec sed -i 's/\r//' {} \;
 
+echo "🔧 Fixing .env file for Docker compatibility..."
+bash cmd/fix-env.sh $ENV_FILE
+
 echo "🐳 Building the Docker image..."
 <<<<<<< HEAD
 docker build -t $IMAGE_NAME:latest .
