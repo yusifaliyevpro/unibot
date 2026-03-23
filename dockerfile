@@ -1,5 +1,5 @@
+# syntax=docker/dockerfile:1
 FROM node:24-slim
-
 RUN apt-get update && apt-get install -y \
     wget \
     ca-certificates \
@@ -22,20 +22,12 @@ RUN apt-get update && apt-get install -y \
     libxshmfence-dev \
     --no-install-recommends && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
-
-
 RUN npm install -g pnpm
-
 WORKDIR /app
-
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 RUN pnpx puppeteer browsers install chrome
-
 COPY . .
-
-RUN pnpm build
-
+RUN --mount=type=secret,id=envfile,target=/app/.env pnpm build
 EXPOSE 3000
-
 CMD ["node", "dist/main"]

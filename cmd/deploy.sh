@@ -16,7 +16,11 @@ git clone --depth=1 $REPO_SSH
 cd $APP_DIR || { echo "❌ Failed to enter the project directory!"; exit 1; }
 
 echo "🐳 Building the Docker image..."
+<<<<<<< HEAD
 docker build -t $IMAGE_NAME:latest .
+=======
+docker build --secret id=envfile,src=$ENV_FILE -t $IMAGE_NAME:latest .
+>>>>>>> 35a2a40 (Refactor deployment script and Dockerfile for improved build process)
 
 echo "🛑 Stopping and removing any existing container..."
 docker stop $CONTAINER_NAME 2>/dev/null || true

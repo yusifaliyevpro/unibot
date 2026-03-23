@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "pnpm db:push && eslint \"src/**/*.ts\" --fix && nest build",
+    "build": "prisma generate && eslint \"src/**/*.ts\" && nest build",
     "db:push": "prisma db push",
     "format": "prettier --write \"src/**/*.ts\"",
     "dev": "nest start --watch",
