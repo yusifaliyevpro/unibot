@@ -1,0 +1,52 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model GameSession {
+  id                     String  @id @default(cuid())
+  phoneNumber            String
+  packageID              Int
+  lastQuestion           Int
+  packageIndex           Int
+  isActive               Boolean
+  numberOfCorrectAnswers Int     @default(0)
+}
+
+model Teacher {
+  id     String @id @default(cuid())
+  name   String
+  number String @unique
+}
+
+// model Task {
+//   id          String   @id @default(cuid())
+//   subject   String
+//   taskText  String
+//   taskDay   DateTime
+//   createdAt DateTime @default(now())
+// }
+
+// model Group {
+//  id          String   @id @default(cuid())
+//   isQuoteGroup Boolean
+//   to           String  @unique
+// }
+
+// Deprecated
+// model ShortenLink {
+//  id          String   @id @default(cuid())
+//   slug      String   @unique
+//   link      String
+//   createdAt DateTime @default(now())
+// }
