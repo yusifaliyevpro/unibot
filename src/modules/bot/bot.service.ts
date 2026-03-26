@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-misused-promises */
 import { Injectable } from "@nestjs/common";
 import { OnModuleInit } from "@nestjs/common";
 import { Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { type GroupChat } from "whatsapp-web.js";
 import { GoogleCalendarService } from "../calendar/calendar.service";
-import { groups, Yusif, UniBotID } from "@/lib/constants";
+import { groups, SuperAdminID, UniBotID } from "@/lib/constants";
 import { isSalam, isLion, getCommand, tomorrow } from "@/lib/utils";
 import { GameService } from "../game/game.service";
 import client from "./client";
@@ -41,7 +42,6 @@ export class BotService implements OnModuleInit {
       this.logger.log(`Loading... ${percent}`);
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     client.on("ready", async () => {
       await client.sendPresenceAvailable();
       await client.setAutoDownloadDocuments(false);
@@ -50,11 +50,12 @@ export class BotService implements OnModuleInit {
       await client.setAutoDownloadVideos(false);
 
       this.logger.log("🟢 You're connected successfully!");
+      // NOTE: DELETE THIS PART, If you just forked the repo and want to test it.
       const uniChat = (await client.getChatById(groups.UNICHAT)) as GroupChat;
       const uniMates = uniChat.participants.map((participant) => participant.id._serialized);
-      await this.teacherService.notifyYusifAboutMessages();
+      await this.teacherService.notifySuperAdminAboutMessages();
+      // till here
 
-      // eslint-disable-next-line @typescript-eslint/no-misused-promises
       client.on("message", async (msg) => {
         try {
           const body = msg.body.trim().toLowerCase();
@@ -95,7 +96,7 @@ export class BotService implements OnModuleInit {
           }
 
           // Forward message to Teacher
-          if (commands.isForwardToTeacher && chat.isGroup && msg.author === Yusif && msg.hasQuotedMsg) {
+          if (commands.isForwardToTeacher && chat.isGroup && msg.author === SuperAdminID && msg.hasQuotedMsg) {
             await this.teacherService.forwardMessageToTeacherFromChat(msg);
           }
 
@@ -104,7 +105,7 @@ export class BotService implements OnModuleInit {
             if (commands.isRegister) {
               return await msg.reply("You already signed up! Just write your messages or send media to forward the *6324E* Group");
             }
-            return await this.teacherService.forwardTeacherMessageTo(chat, Yusif, msg);
+            return await this.teacherService.forwardTeacherMessageTo(chat, SuperAdminID, msg);
           }
 
           // Send AI response
@@ -162,7 +163,7 @@ export class BotService implements OnModuleInit {
           }
 
           // Clear Messages
-          if (commands.isClear && msg.from === Yusif) {
+          if (commands.isClear && msg.from === SuperAdminID) {
             await sendStateTyping();
             await chat.sendMessage("Clearing all messages...");
             await this.clearAllMessages();
@@ -180,13 +181,10 @@ export class BotService implements OnModuleInit {
       });
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     client.on("qr", async (qr) => {
-       
       console.log(await QRCode.toString(qr, { small: true, type: "terminal" }));
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     client.on("disconnected", async () => {
       this.logger.warn("Client disconnected, attempting to restart...");
       await client.initialize().then(() => this.logger.log("🟢 Whatsapp web is initialized successfully again!"));

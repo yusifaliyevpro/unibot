@@ -8,12 +8,12 @@ This project requires domain knowledge to set up and run. If you are not familia
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - pnpm
 - A [Neon](https://neon.tech) PostgreSQL database
 - A Google Cloud project with Calendar API enabled and OAuth 2.0 credentials
 - An [OpenRouter](https://openrouter.ai) API key
-- An [Adobe PDF Services](https://developer.adobe.com/document-services) API key
+- An [Adobe PDF Services](https://developer.adobe.com/document-services) API key (optional)
 - A deployed instance of the sticker generator (optional, see `.env.example`)
 
 ## Setup
@@ -48,32 +48,47 @@ This project requires domain knowledge to set up and run. If you are not familia
    pnpm dev
    ```
 
-On first run, a QR code will appear in the terminal — scan it with WhatsApp to authenticate.
+On first run, a QR code will appear in the terminal — scan it with WhatsApp to authenticate. Wait at least 2 minutes before editing any code or quiting dev, otherwise you will need to scan QR code next time again. Dev server needs to sync itself especially if you have long chat history, it may take 5 minutes. I highly recommend to use a second number, but this second number must be bought in at least 6 months ago and used normally for a while otherwise Whatsapp can block that. I never faced a ban from Whatsapp.
 
 ## Running 24/7
 
-To keep the bot running around the clock, you need a server. The project includes a Dockerfile for easy deployment.
+To keep the bot running continuously, you need a server. The project includes a Dockerfile for easy deployment.
 
-Since the project directory gets wiped on every deploy, **do not place your `.env` inside the project folder**. Instead, store it in a separate location on the server:
+Since the project directory is wiped on every deploy, **do not place your `.env` inside the project folder**. Store it separately on the server:
 
 ```bash
 mkdir -p ~/unibot-env
 cp .env ~/unibot-env/.env
-chmod 600 ~/unibot-env/.env
 ```
 
-Then build and run:
+### Deployment
 
-```bash
-docker build -t unibot .
-docker run -d --env-file ~/unibot-env/.env unibot
-```
+Build and run the deployment. You can use your own scripts or the provided `deploy.sh`.
 
-If you are using the provided `deploy.sh` script, make sure to update the `REPO_SSH` variable at the top of the file to point to your own repository:
+1. Update `REPO_SSH` at the top of `deploy.sh` to point to your repository:
 
 ```bash
 REPO_SSH="git@github.com:your-username/your-repo.git"
 ```
+
+2. Grant execution permissions for the first-time run:
+
+```bash
+chmod +x ./ch.sh
+./ch.sh
+```
+
+3. Run the deploy script:
+
+```bash
+./deploy.sh
+```
+
+**Notes:**
+
+- If your repo is private, connect the server to GitHub using a personal access token first. Otherwise `deploy.sh` will not work.
+- On first deploy, a QR code will appear — scan it with WhatsApp to pair. The dev server may take a few minutes to sync, especially with long chat history.
+- Using a secondary WhatsApp number can reduce the risk of temporary bans, but it should be an established number used for at least 6 months.
 
 ## Deprecated
 

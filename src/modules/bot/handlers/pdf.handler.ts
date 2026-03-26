@@ -81,7 +81,7 @@ export async function handleConvertToPDF(msg: Message, commandMsg: Message) {
     // 10. Choose a fileName and capitalize it
     const originalFileName = media.filename ? media.filename.replaceAll(/\.(docx?|pptx?|png|xlsx?|doc|ppt|xls|)$/g, "").trim() : "";
     const capitalize = (str: string) => str.replace(/\b\w/g, (char) => char.toUpperCase());
-    const fileName = `${capitalize(originalFileName.trim() || "Converted")} (TRUTH) by YusifAliyevPro(UniBot).pdf`;
+    const fileName = `${capitalize(originalFileName.trim() || "Converted")} (UniBot).pdf`;
 
     // 11. Send PDF buffer back to WhatsApp
     const pdf = new MessageMedia("application/pdf", pdfBuffer.toString("base64"), fileName);

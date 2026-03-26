@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "prisma generate && eslint \"src/**/*.ts\" && nest build",
-    "db:push": "prisma db push",
+    "db:push": "prisma db push && prisma generate",
     "format": "prettier --write \"src/**/*.ts\"",
     "dev": "nest start --watch",
     "start:dev": "nest start --watch",

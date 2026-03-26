@@ -3,7 +3,7 @@ import { PrismaService } from "src/prisma.service";
 import type { Teacher } from "@/generated/prisma/client";
 import { Chat, type Client, type Message, MessageTypes } from "whatsapp-web.js";
 import { sendErrorLog, sendLog } from "@/lib/logger";
-import { Yusif } from "@/lib/constants";
+import { SuperAdminID } from "@/lib/constants";
 import { commands } from "@/lib/utils";
 import client from "../bot/client";
 import { LogMessages } from "@/lib/logger_messages";
@@ -12,14 +12,14 @@ import { LogMessages } from "@/lib/logger_messages";
 export class TeacherService {
   constructor(private prisma: PrismaService) {}
 
-  async notifyYusifAboutMessages() {
+  async notifySuperAdminAboutMessages() {
     try {
       const teachers = await this.getAllTeachers();
       if (!teachers) return null;
       for (const teacher of teachers) {
         const chat = await client.getChatById(teacher.number);
         if (chat.unreadCount !== 0) {
-          await client.sendMessage(Yusif, "I think a teacher wrote me but i didn't forward it to group, check it");
+          await client.sendMessage(SuperAdminID, "I think a teacher wrote me but i didn't forward it to group, check it");
           await chat.sendSeen();
         }
       }

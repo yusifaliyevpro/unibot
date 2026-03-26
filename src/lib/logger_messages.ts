@@ -22,7 +22,7 @@ export enum userFriendlyMessages {
   AI_MESSAGE_FAIL = "Sorry, I couldn't process your request. Please try again later. " +
     "An error happened on server or maybe the rate limit is reached (1000 requests per day).",
   STICKER_ONLY_TEXT_AND_IMAGE = "Only text and image messages can be a sticker!",
-  NEW_TASK_FAIL = "Hmm... An error occurred. Maybe you should notify Yusif.",
+  NEW_TASK_FAIL = "Hmm... An error occurred. Maybe you should notify Yusif (Super Admin).",
 }
 
 export enum gameMsgs {

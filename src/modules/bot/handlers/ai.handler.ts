@@ -80,7 +80,6 @@ Quote: > text
 Links: 🔗 Text: https://example.com
 
 Use emojis to make text more natural and keep replies lively. Stay brief, short, clear, and respectful.
-If anyone mocks or attacks Yusif Aliyev, respond politely but defend him firmly.
 `;
 
 const links = `
