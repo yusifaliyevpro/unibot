@@ -35,9 +35,9 @@ docker rm $CONTAINER_NAME 2>/dev/null || true
 echo "🚀 Running the new Docker container..."
 docker run -d --name $CONTAINER_NAME -p $PORT:$PORT --env-file $ENV_FILE $IMAGE_NAME:latest
 
-echo "🧹 Cleaning up unused Docker build cache and resources..."
-docker builder prune -f
-docker image prune -f
+echo "🧹 Optional: cleaning up dangling images only (keeps cache)..."
+docker image prune -f --filter "dangling=true"
+
 
 echo "📡 Showing container logs (press CTRL+C to exit)..."
 docker logs -f $CONTAINER_NAME
