@@ -22,11 +22,7 @@ echo "🔧 Fixing .env file for Docker compatibility..."
 bash cmd/fix-env.sh $ENV_FILE
 
 echo "🐳 Building the Docker image..."
-<<<<<<< HEAD
-docker build -t $IMAGE_NAME:latest .
-=======
 docker build --secret id=envfile,src=$ENV_FILE -t $IMAGE_NAME:latest .
->>>>>>> 35a2a40 (Refactor deployment script and Dockerfile for improved build process)
 
 echo "🛑 Stopping and removing any existing container..."
 docker stop $CONTAINER_NAME 2>/dev/null || true
