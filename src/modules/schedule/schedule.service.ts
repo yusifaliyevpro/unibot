@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { tomorrow } from "@/lib/utils";
-import { GoogleCalendarService } from "src/modules/calendar/calendar.service";
+import { GoogleCalendarService } from "@/src/modules/calendar/calendar.service";
 import { Chat } from "whatsapp-web.js";
 import { getWeek } from "date-fns";
 import { calendar_v3 } from "@googleapis/calendar";

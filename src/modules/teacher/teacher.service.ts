@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { PrismaService } from "src/prisma.service";
+import { PrismaService } from "@/src/prisma.service";
 import type { Teacher } from "@/generated/prisma/client";
 import { Chat, type Client, type Message, MessageTypes } from "whatsapp-web.js";
 import { sendErrorLog, sendLog } from "@/lib/logger";

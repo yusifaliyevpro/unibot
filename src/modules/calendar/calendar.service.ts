@@ -67,8 +67,9 @@ export class GoogleCalendarService {
         teacher = ` | ${lessonSummary.split("|")[1].trim()}`;
       }
       const doorNumberMatch = lessonSummary.match(/\d-\d{3}/);
+      const isOnline = lessonSummary.toLowerCase().includes("online");
       const doorNumber = doorNumberMatch ? doorNumberMatch[0].trim() : "unknown";
-      return `⌛ _*${lessonName + lessonType + teacher}*_ starts in *15 minutes* at *${doorNumber}*`;
+      return `⌛ _*${lessonName + lessonType + teacher}*_ starts in *15 minutes* ${isOnline ? "*(Online)*" : `at *${doorNumber}*`}`;
     }
     return null;
   }

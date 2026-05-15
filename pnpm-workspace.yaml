@@ -1,9 +1,7 @@
-onlyBuiltDependencies:
-  - '@nestjs/core'
-  - '@prisma/client'
-  - '@prisma/engines'
-  - '@swc/core'
-  - prisma
-  - puppeteer
-  - sharp
-  - unrs-resolver
+allowBuilds:
+  '@nestjs/core': true
+  '@prisma/engines': true
+  '@swc/core': true
+  prisma: true
+  puppeteer: true
+  sharp: true
