@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # === Configuration ===
-REPO_SSH="git@github.com:yusifaliyevpro/unibot.git" # Replace with your actual repo SSH URL
+REPO_URL="https://github.com/yusifaliyevpro/unibot.git"
 APP_DIR="unibot"
 CONTAINER_NAME="unibot-container"
 IMAGE_NAME="unibot"
@@ -12,7 +12,7 @@ echo "🧹 Removing previous project directory if it exists..."
 rm -rf $APP_DIR
 
 echo "📥 Cloning the repository again..."
-git clone --depth=1 $REPO_SSH
+git clone --depth=1 $REPO_URL
 cd $APP_DIR || { echo "❌ Failed to enter the project directory!"; exit 1; }
 
 echo "🔧 Fixing line endings..."
