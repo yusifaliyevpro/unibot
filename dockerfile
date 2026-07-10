@@ -53,7 +53,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # Install Chrome before copying source — cached unless deps change
-RUN pnpx puppeteer browsers install chrome
+RUN pnpm puppeteer browsers install chrome
 
 COPY . .
 

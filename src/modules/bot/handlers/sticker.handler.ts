@@ -1,7 +1,7 @@
 import axios from "axios";
 import * as fs from "fs";
 import * as path from "path";
-import * as sharp from "sharp";
+import sharp from "sharp";
 import { BASE_URL, isInDev } from "@/lib/constants";
 import { ENV } from "@/lib/env";
 import { sendErrorLog, sendLog } from "@/lib/logger";
