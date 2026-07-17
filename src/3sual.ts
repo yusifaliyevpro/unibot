@@ -14,7 +14,6 @@ type GamePackages = {
   }[];
 }[];
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
 const data = require("./../3sual.json");
 
 export const gamePackages = data as GamePackages;

@@ -1,12 +1,12 @@
-import { NestFactory } from "@nestjs/core";
-import { AppModule } from "./app.module";
+import { join } from "node:path";
 import { Logger } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
 import * as express from "express";
-import { join } from "path";
+import { AppModule } from "./app.module";
 import "./lib/env";
 
 if (typeof globalThis.crypto === "undefined") {
-  void import("crypto").then((crypto) => {
+  void import("node:crypto").then((crypto) => {
     globalThis.crypto = crypto.webcrypto;
   });
 }
@@ -22,5 +22,4 @@ async function bootstrap() {
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
 bootstrap();

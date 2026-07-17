@@ -1,9 +1,9 @@
-import WAWebJS, { Chat } from "whatsapp-web.js";
+import type { Chat, Message } from "whatsapp-web.js";
 import { sendLog, sendErrorLog } from "@/lib/logger";
-import { helpBox, universityHelpbox, helpBoxAZ } from "@/lib/messages";
 import { LogMessages } from "@/lib/logger_messages";
+import { helpBox, universityHelpbox, helpBoxAZ } from "@/lib/messages";
 
-export async function handleHelpBox(chat: Chat, msg: WAWebJS.Message, isGroupMateOrChat: boolean) {
+export async function handleHelpBox(chat: Chat, msg: Message, isGroupMateOrChat: boolean) {
   try {
     const isAZ = msg.body.toLowerCase().includes("@az");
     const messageBody = isAZ ? helpBoxAZ : helpBox + (isGroupMateOrChat ? universityHelpbox : "");

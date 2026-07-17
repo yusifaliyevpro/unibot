@@ -1,22 +1,22 @@
 import { Injectable } from "@nestjs/common";
-import { PrismaService } from "@/src/prisma.service";
-import { GameSession, Prisma } from "@/generated/prisma/client";
-import { gamePackages } from "@/src/3sual";
-import WAWebJS, { Chat, GroupChat, Message, MessageMedia } from "whatsapp-web.js";
-import { getCommand } from "@/lib/utils";
-import { sendErrorLog, sendLog } from "@/lib/logger";
-import { generateObject } from "ai";
-import { z } from "zod";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { generateText, Output } from "ai";
+import { type Chat, type GroupChat, type Message, MessageMedia } from "whatsapp-web.js";
+import { z } from "zod";
+import type { GameSession, Prisma } from "@/generated/prisma/client";
 import { ENV } from "@/lib/env";
-import client from "@/modules/bot/client";
+import { sendErrorLog, sendLog } from "@/lib/logger";
 import { gameMsgs, LogMessages } from "@/lib/logger_messages";
+import { getCommand } from "@/lib/utils";
+import client from "@/modules/bot/client";
+import { gamePackages } from "@/src/3sual";
+import type { PrismaService } from "@/src/prisma.service";
 
 @Injectable()
 export class GameService {
   constructor(private prisma: PrismaService) {}
 
-  async handleGame(msg: WAWebJS.Message, chat: WAWebJS.Chat, isAdmin: boolean) {
+  async handleGame(msg: Message, chat: Chat, isAdmin: boolean) {
     const reactSuccess = async () => await msg.react("✅");
     const reactError = async () => await msg.react("❌");
     try {
@@ -105,7 +105,7 @@ export class GameService {
     }
   }
 
-  async handleGameStart(msg: WAWebJS.Message, chat: WAWebJS.Chat) {
+  async handleGameStart(msg: Message, chat: Chat) {
     try {
       const sendQuestion = async (message: string, rekvizit: null | { text: boolean; rekvizit: string }) => {
         let questionText = message.trim();
@@ -207,9 +207,9 @@ export class GameService {
 
   private async verifyAnswerByAI(answer: string, considered: string | null, userAnswer: string) {
     try {
-      const { object } = await generateObject({
+      const { output } = await generateText({
         model: openrouter("deepseek/deepseek-chat-v3.1"),
-        schema: answerVerificationSchema,
+        output: Output.object({ schema: answerVerificationSchema }),
         prompt: `Sən çox dəqiq çalışan yoxlayıcı bir oyun süni intellektisən.
 İstifadəçinin cavabının düzgün olub-olmadığını aşağıdakı "doğru cavab"a əsaslanaraq qiymətləndir.
 Kiçik yazı səhvlərinə, fərqli yazılışlara, sinonimlərə və eyni mənanı verən ifadələrə icazə ver.
@@ -222,7 +222,7 @@ ${considered && `Sayılma Meyarı: ${considered}`}
           
 Bu cavab doğru hesab oluna bilərmi?`,
       });
-      return object.correct;
+      return output.correct;
     } catch (error: unknown) {
       console.log(error);
       return false;

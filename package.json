@@ -4,14 +4,16 @@
   "description": "A NestJS-based WhatsApp bot with AI, scheduling, and utility integrations.",
   "license": "MIT",
   "scripts": {
-    "build": "prisma generate && eslint \"src/**/*.ts\" && nest build",
+    "build": "prisma generate && pnpm lint && nest build",
     "db:push": "prisma db push && prisma generate",
-    "format": "prettier --write \"src/**/*.ts\"",
     "dev": "nest start --watch",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start": "node dist/main",
-    "lint": "eslint \"src/**/*.ts\" --fix"
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix"
   },
   "dependencies": {
     "@adobe/pdfservices-node-sdk": "4.1.0",
@@ -41,9 +43,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "3.3.5",
-    "@eslint/js": "10.0.1",
-    "@nestjs/cli": "11.0.23",
+    "@nestjs/cli": "11.0.24",
     "@nestjs/schematics": "11.1.0",
     "@prisma/client": "7.8.0",
     "@swc/cli": "0.8.1",
@@ -51,16 +51,13 @@
     "@types/express": "5.0.6",
     "@types/node": "24.12.4",
     "@types/qrcode": "1.5.6",
-    "eslint": "9.39.4",
-    "eslint-config-prettier": "10.1.8",
-    "eslint-plugin-prettier": "5.5.6",
-    "prettier": "3.9.4",
+    "oxfmt": "0.59.0",
+    "oxlint": "1.74.0",
     "prisma": "7.8.0",
     "source-map-support": "0.5.21",
     "ts-loader": "9.6.2",
     "ts-node": "10.9.2",
     "tsconfig-paths": "4.2.0",
-    "typescript": "5.9.3",
-    "typescript-eslint": "8.63.0"
+    "typescript": "5.9.3"
   }
 }

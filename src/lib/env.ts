@@ -1,5 +1,5 @@
-import { z } from "zod";
 import * as dotenv from "dotenv";
+import { z } from "zod";
 
 dotenv.config({ quiet: true });
 
@@ -39,9 +39,7 @@ if (!parsedEnv.success) {
 export const ENV = parsedEnv.data;
 
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace NodeJS {
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     interface ProcessEnv extends EnvSchemaType {}
   }
 }

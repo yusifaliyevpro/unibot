@@ -1,9 +1,9 @@
+import type { calendar_v3 } from "@googleapis/calendar";
 import { Injectable } from "@nestjs/common";
-import { tomorrow } from "@/lib/utils";
-import { GoogleCalendarService } from "@/src/modules/calendar/calendar.service";
-import { Chat } from "whatsapp-web.js";
 import { getWeek } from "date-fns";
-import { calendar_v3 } from "@googleapis/calendar";
+import type { Chat } from "whatsapp-web.js";
+import { tomorrow } from "@/lib/utils";
+import type { GoogleCalendarService } from "@/src/modules/calendar/calendar.service";
 
 @Injectable()
 export class ScheduleService {
@@ -14,7 +14,7 @@ export class ScheduleService {
       const { dayLabel, targetDay } = this.getDay(isForTomorrow);
       const week = getWeek(targetDay);
       const events = await this.calendarService.getSchedule(targetDay);
-      const scheduleMessage = this.generateScheduleText(events, isForTomorrow, week % 2 == 0);
+      const scheduleMessage = this.generateScheduleText(events, isForTomorrow, week % 2 === 0);
       const schmsg = await chat.sendMessage(scheduleMessage);
       console.log(`Schedule for ${dayLabel} sent to ${chat.name}`);
       return schmsg;

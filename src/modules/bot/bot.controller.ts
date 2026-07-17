@@ -1,11 +1,11 @@
 import { Controller, Get, Res } from "@nestjs/common";
-import * as QRCode from "qrcode";
-import { Response } from "express";
 import { OnEvent } from "@nestjs/event-emitter";
+import type { Response } from "express";
+import * as QRCode from "qrcode";
 
 @Controller("bot")
 export class BotController {
-  private qrCode: string;
+  private qrCode: string | undefined;
 
   @OnEvent("qrcode.created")
   handleQrcodeCreatedEvent(qrCode: string) {

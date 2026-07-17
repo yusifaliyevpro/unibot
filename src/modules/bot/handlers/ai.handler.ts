@@ -1,8 +1,8 @@
-import { GroupChat, Message } from "whatsapp-web.js";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText } from "ai";
-import { sendErrorLog, sendLog } from "@/lib/logger";
+import type { GroupChat, Message } from "whatsapp-web.js";
 import { ENV } from "@/lib/env";
+import { sendErrorLog, sendLog } from "@/lib/logger";
 import { LogMessages, userFriendlyMessages } from "@/lib/logger_messages";
 
 const openrouter = createOpenRouter({ apiKey: ENV.OPENROUTER_API_KEY });

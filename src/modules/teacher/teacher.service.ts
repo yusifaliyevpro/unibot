@@ -1,12 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import { PrismaService } from "@/src/prisma.service";
+import { type Chat, type Message, MessageTypes } from "whatsapp-web.js";
 import type { Teacher } from "@/generated/prisma/client";
-import { Chat, type Client, type Message, MessageTypes } from "whatsapp-web.js";
-import { sendErrorLog, sendLog } from "@/lib/logger";
 import { SuperAdminID } from "@/lib/constants";
-import { commands } from "@/lib/utils";
-import client from "../bot/client";
+import { sendErrorLog, sendLog } from "@/lib/logger";
 import { LogMessages } from "@/lib/logger_messages";
+import { commands } from "@/lib/utils";
+import type { PrismaService } from "@/src/prisma.service";
+import client from "../bot/client";
 
 @Injectable()
 export class TeacherService {
@@ -38,7 +38,7 @@ export class TeacherService {
         if (teacher) {
           msg = await msg.getQuotedMessage();
           msg.body = `*6324E Group 🗣*: ` + msg.body;
-          await this.sendOrForwardMessage(client, msg, teacher.number);
+          await this.sendOrForwardMessage(msg, teacher.number);
           await sendLog(LogMessages.SENDING_MESSAGE_TO_TEACHER, msg);
         } else await msg.reply("Teacher not found!");
       } else await msg.reply("You should write teacher name after @ sign (case insensitive). For example: @yusif");
@@ -53,14 +53,14 @@ export class TeacherService {
       if (!teacher) return;
       await chat.sendSeen();
       msg.body = `*${teacher.name} Teacher*: ` + msg.body;
-      await this.sendOrForwardMessage(client, msg, to);
+      await this.sendOrForwardMessage(msg, to);
       await msg.react("✅");
     } catch (error) {
       await sendErrorLog(LogMessages.TEACHER_MESSAGE_SEND_TO_GROUP, msg, error);
     }
   }
 
-  async sendOrForwardMessage(client: Client, msg: Message, to: string) {
+  async sendOrForwardMessage(msg: Message, to: string) {
     try {
       const chat = await client.getChatById(to);
       if (!msg.hasMedia) await chat.sendMessage(msg.body);

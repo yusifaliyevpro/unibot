@@ -1,9 +1,11 @@
-import { Message, MessageMedia } from "whatsapp-web.js";
+import { Readable } from "node:stream";
 import { ServicePrincipalCredentials, PDFServices, MimeType, CreatePDFJob, CreatePDFResult } from "@adobe/pdfservices-node-sdk";
-import { Readable } from "stream";
+import { type Message, MessageMedia } from "whatsapp-web.js";
 import { ENV } from "@/lib/env";
 import { sendErrorLog, sendLog } from "@/lib/logger";
 import { LogMessages } from "@/lib/logger_messages";
+
+const capitalize = (str: string) => str.replace(/\b\w/g, (char) => char.toUpperCase());
 
 export async function handleConvertToPDF(msg: Message, commandMsg: Message) {
   let readStream: Readable | null = null;
@@ -80,7 +82,6 @@ export async function handleConvertToPDF(msg: Message, commandMsg: Message) {
 
     // 10. Choose a fileName and capitalize it
     const originalFileName = media.filename ? media.filename.replaceAll(/\.(docx?|pptx?|png|xlsx?|doc|ppt|xls|)$/g, "").trim() : "";
-    const capitalize = (str: string) => str.replace(/\b\w/g, (char) => char.toUpperCase());
     const fileName = `${capitalize(originalFileName.trim() || "Converted")} (UniBot).pdf`;
 
     // 11. Send PDF buffer back to WhatsApp
