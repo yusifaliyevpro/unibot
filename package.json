@@ -2,7 +2,12 @@
   "name": "unibot",
   "version": "1.0.0",
   "description": "A NestJS-based WhatsApp bot with AI, scheduling, and utility integrations.",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
+  "author": {
+    "name": "Yusif Aliyev",
+    "email": "yusifaliyevpro@gmail.com",
+    "url": "https://yusifaliyevpro.com"
+  },
   "scripts": {
     "build": "prisma generate && pnpm lint && nest build",
     "db:push": "prisma db push && prisma generate",
