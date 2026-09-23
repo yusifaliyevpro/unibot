@@ -1,12 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import { type Chat, type Message, MessageTypes } from "whatsapp-web.js";
-import type { Teacher } from "@/generated/prisma/client";
-import { SuperAdminID } from "@/lib/constants";
-import { sendErrorLog, sendLog } from "@/lib/logger";
-import { LogMessages } from "@/lib/logger_messages";
-import { commands } from "@/lib/utils";
-import type { PrismaService } from "@/src/prisma.service";
-import client from "../bot/client";
+import type { Teacher } from "../../generated/prisma/client.js";
+import { SuperAdminID } from "../../lib/constants.js";
+import { sendErrorLog, sendLog } from "../../lib/logger.js";
+import { LogMessages } from "../../lib/logger_messages.js";
+import { commands } from "../../lib/utils.js";
+import { type Chat, type Message, MessageTypes } from "../../lib/whatsapp.ts";
+import { PrismaService } from "../../prisma.service.js";
+import client from "../bot/client.js";
 
 @Injectable()
 export class TeacherService {

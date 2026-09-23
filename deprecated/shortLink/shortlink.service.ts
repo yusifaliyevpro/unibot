@@ -1,5 +1,5 @@
 // import { sendErrorLog, sendLog } from "@/lib/logger";
-// import WAWebJS, { Chat } from "whatsapp-web.js";
+// import WAWebJS, { Chat } from "../lib/whatsapp.ts";
 // import { PrismaService } from "@/src/prisma.service";
 // import { Prisma, ShortenLink } from "@/generated/prisma/client";
 // import { Injectable } from "@nestjs/common";

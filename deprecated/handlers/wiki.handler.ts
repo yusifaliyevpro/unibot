@@ -1,5 +1,5 @@
 // import wiki from "wikipedia";
-// import WAWebJS, { Chat, MessageMedia } from "whatsapp-web.js";
+// import WAWebJS, { Chat, MessageMedia } from "../lib/whatsapp.ts";
 // import { sendErrorLog, sendLog } from "@/lib/logger";
 // import { LogMessages } from "@/lib/logger_messages";
 

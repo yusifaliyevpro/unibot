@@ -1,9 +1,9 @@
 import { Readable } from "node:stream";
 import { ServicePrincipalCredentials, PDFServices, MimeType, CreatePDFJob, CreatePDFResult } from "@adobe/pdfservices-node-sdk";
-import { type Message, MessageMedia } from "whatsapp-web.js";
-import { ENV } from "@/lib/env";
-import { sendErrorLog, sendLog } from "@/lib/logger";
-import { LogMessages } from "@/lib/logger_messages";
+import { ENV } from "../../../lib/env.js";
+import { sendErrorLog, sendLog } from "../../../lib/logger.js";
+import { LogMessages } from "../../../lib/logger_messages.js";
+import { type Message, MessageMedia } from "../../../lib/whatsapp.ts";
 
 const capitalize = (str: string) => str.replace(/\b\w/g, (char) => char.toUpperCase());
 

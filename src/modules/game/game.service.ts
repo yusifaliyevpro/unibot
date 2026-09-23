@@ -1,16 +1,16 @@
 import { Injectable } from "@nestjs/common";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText, Output } from "ai";
-import { type Chat, type GroupChat, type Message, MessageMedia } from "whatsapp-web.js";
 import { z } from "zod";
-import type { GameSession, Prisma } from "@/generated/prisma/client";
-import { ENV } from "@/lib/env";
-import { sendErrorLog, sendLog } from "@/lib/logger";
-import { gameMsgs, LogMessages } from "@/lib/logger_messages";
-import { getCommand } from "@/lib/utils";
-import client from "@/modules/bot/client";
-import { gamePackages } from "@/src/3sual";
-import type { PrismaService } from "@/src/prisma.service";
+import { gamePackages } from "../../3sual.js";
+import type { GameSession, Prisma } from "../../generated/prisma/client.ts";
+import { ENV } from "../../lib/env.js";
+import { sendErrorLog, sendLog } from "../../lib/logger.ts";
+import { gameMsgs, LogMessages } from "../../lib/logger_messages.ts";
+import { getCommand } from "../../lib/utils.js";
+import { type Chat, type GroupChat, type Message, MessageMedia } from "../../lib/whatsapp.ts";
+import client from "../../modules/bot/client.js";
+import { PrismaService } from "../../prisma.service.ts";
 
 @Injectable()
 export class GameService {

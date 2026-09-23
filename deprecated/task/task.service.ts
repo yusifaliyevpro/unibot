@@ -5,7 +5,7 @@
 // import { sendErrorLog, sendLog } from "@/lib/logger";
 // import { dateFormatter, getDay, tasksFormatter } from "@/lib/utils";
 // import { GoogleCalendarService } from "@/modules/calendar/calendar.service";
-// import WAWebJS, { Chat } from "whatsapp-web.js";
+// import WAWebJS, { Chat } from "../lib/whatsapp.ts";
 // import { LogMessages, userFriendlyMessages } from "@/lib/logger_messages";
 
 // @Injectable()

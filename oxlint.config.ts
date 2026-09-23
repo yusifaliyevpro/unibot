@@ -10,8 +10,15 @@ export default defineConfig({
     eqeqeq: "warn",
     "no-throw-literal": "warn",
     "no-underscore-dangle": "off",
-    "import/no-unassigned-import": ["warn", { allow: ["./lib/env", "dotenv/config"] }],
+    "import/no-unassigned-import": ["warn", { allow: ["./lib/env.js", "dotenv/config"] }],
     "unicorn/prefer-node-protocol": "warn",
     "typescript/consistent-type-imports": "warn",
   },
+  overrides: [
+    {
+      // Nest DI needs constructor param types as runtime values for decorator metadata
+      files: ["**/*.service.ts", "**/*.controller.ts", "**/*.module.ts", "**/*.gateway.ts"],
+      rules: { "typescript/consistent-type-imports": "off" },
+    },
+  ],
 });

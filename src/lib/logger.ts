@@ -1,7 +1,7 @@
 import { Logger } from "@nestjs/common";
-import type { Message } from "whatsapp-web.js";
-import client from "../modules/bot/client";
-import { groups } from "./constants";
+import type { Message } from "../lib/whatsapp.ts";
+import client from "../modules/bot/client.js";
+import { groups } from "./constants.js";
 
 const logger = new Logger("LoggerService");
 

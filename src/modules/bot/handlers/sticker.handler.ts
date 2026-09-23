@@ -2,11 +2,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import axios from "axios";
 import sharp from "sharp";
-import { type Chat, type Message, MessageMedia, MessageTypes } from "whatsapp-web.js";
-import { BASE_URL, isInDev } from "@/lib/constants";
-import { ENV } from "@/lib/env";
-import { sendErrorLog, sendLog } from "@/lib/logger";
-import { LogMessages, userFriendlyMessages } from "@/lib/logger_messages";
+import { BASE_URL, isInDev } from "../../../lib/constants.js";
+import { ENV } from "../../../lib/env.js";
+import { sendErrorLog, sendLog } from "../../../lib/logger.js";
+import { LogMessages, userFriendlyMessages } from "../../../lib/logger_messages.js";
+import { type Chat, type Message, MessageMedia, MessageTypes } from "../../../lib/whatsapp.ts";
 
 export async function handleSticker(msg: Message, chat: Chat) {
   try {

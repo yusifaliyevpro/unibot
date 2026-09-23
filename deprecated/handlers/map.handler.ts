@@ -1,5 +1,5 @@
 // import { sendErrorLog, sendLog } from "@/lib/logger";
-// import { Chat, Message, MessageMedia } from "whatsapp-web.js";
+// import { Chat, Message, MessageMedia } from "../lib/whatsapp.ts";
 // import * as path from "path";
 // import { LogMessages } from "@/lib/logger_messages";
 

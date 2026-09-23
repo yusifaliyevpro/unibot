@@ -1,22 +1,22 @@
 import { Injectable } from "@nestjs/common";
 import type { OnModuleInit } from "@nestjs/common";
 import { Logger } from "@nestjs/common";
-import type { EventEmitter2 } from "@nestjs/event-emitter";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Cron } from "@nestjs/schedule";
 import { getWeek } from "date-fns";
 import * as QRCode from "qrcode";
-import { type GroupChat } from "whatsapp-web.js";
-import { groups, SuperAdminID, UniBotID } from "@/lib/constants";
-import { isSalam, isLion, getCommand, tomorrow } from "@/lib/utils";
-import type { GoogleCalendarService } from "../calendar/calendar.service";
-import type { GameService } from "../game/game.service";
-import type { ScheduleService } from "../schedule/schedule.service";
-import type { TeacherService } from "../teacher/teacher.service";
-import client from "./client";
-import { handleAIGroupMention } from "./handlers/ai.handler";
-import { handleHelpBox } from "./handlers/help.handler";
-import { handleConvertToPDF } from "./handlers/pdf.handler";
-import { handleSticker } from "./handlers/sticker.handler";
+import { groups, SuperAdminID, UniBotID } from "../../lib/constants.js";
+import { isSalam, isLion, getCommand, tomorrow } from "../../lib/utils.js";
+import { type GroupChat } from "../../lib/whatsapp.ts";
+import { GoogleCalendarService } from "../calendar/calendar.service.js";
+import { GameService } from "../game/game.service.js";
+import { ScheduleService } from "../schedule/schedule.service.js";
+import { TeacherService } from "../teacher/teacher.service.js";
+import client from "./client.js";
+import { handleAIGroupMention } from "./handlers/ai.handler.js";
+import { handleHelpBox } from "./handlers/help.handler.js";
+import { handleConvertToPDF } from "./handlers/pdf.handler.js";
+import { handleSticker } from "./handlers/sticker.handler.js";
 
 @Injectable()
 export class BotService implements OnModuleInit {

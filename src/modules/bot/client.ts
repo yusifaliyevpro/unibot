@@ -1,4 +1,4 @@
-import { Client, LocalAuth } from "whatsapp-web.js";
+import { Client, LocalAuth } from "../../lib/whatsapp.ts";
 
 declare global {
   var _clientInstance: Client | undefined;

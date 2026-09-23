@@ -1,9 +1,9 @@
 import type { calendar_v3 } from "@googleapis/calendar";
 import { Injectable } from "@nestjs/common";
 import { getWeek } from "date-fns";
-import type { Chat } from "whatsapp-web.js";
-import { tomorrow } from "@/lib/utils";
-import type { GoogleCalendarService } from "@/src/modules/calendar/calendar.service";
+import { tomorrow } from "../../lib/utils.js";
+import type { Chat } from "../../lib/whatsapp.ts";
+import { GoogleCalendarService } from "../../modules/calendar/calendar.service.js";
 
 @Injectable()
 export class ScheduleService {

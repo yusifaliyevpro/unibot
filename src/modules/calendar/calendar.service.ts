@@ -2,7 +2,7 @@ import { type calendar_v3, auth, calendar } from "@googleapis/calendar";
 import { Injectable } from "@nestjs/common";
 import * as dotenv from "dotenv";
 
-dotenv.config();
+dotenv.config({ path: ".env", quiet: true });
 
 type Token = {
   type: string;

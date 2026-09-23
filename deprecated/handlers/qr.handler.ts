@@ -1,7 +1,7 @@
 // import * as QRCode from "qrcode";
 // import { sendErrorLog, sendLog } from "@/lib/logger";
 // import { LogMessages } from "@/lib/logger_messages";
-// import WAWebJS, { MessageMedia } from "whatsapp-web.js";
+// import WAWebJS, { MessageMedia } from "../lib/whatsapp.ts";
 
 // export async function handleQRCode(msg: WAWebJS.Message, body: string, chat: WAWebJS.Chat) {
 //   const data = body.replace("/qr", "").trim();

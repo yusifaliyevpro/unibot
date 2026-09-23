@@ -3,7 +3,7 @@
 // import { UniBotID } from "@/lib/constants";
 // import { sendErrorLog, sendLog } from "@/lib/logger";
 // import { LogMessages } from "@/lib/logger_messages";
-// import WAWebJS, { GroupChat } from "whatsapp-web.js";
+// import WAWebJS, { GroupChat } from "../lib/whatsapp.ts";
 
 // export async function mentionGroupParticipants(msg: WAWebJS.Message, chat: WAWebJS.Chat) {
 //   try {

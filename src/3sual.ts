@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 type GamePackages = {
   id: number;
   name: null | string;
@@ -14,6 +18,11 @@ type GamePackages = {
   }[];
 }[];
 
-const data = require("./../3sual.json");
+const currentFile = fileURLToPath(import.meta.url);
+const currentDirectory = dirname(currentFile);
 
-export const gamePackages = data as GamePackages;
+const jsonPath = resolve(currentDirectory, "../3sual.json");
+
+const data = JSON.parse(readFileSync(jsonPath, "utf8")) as GamePackages;
+
+export const gamePackages = data;

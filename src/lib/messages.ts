@@ -1,4 +1,4 @@
-import { commands } from "./utils";
+import { commands } from "./utils.js";
 
 export const helpBox = `Hi 👋, I'm UniBot created by Yusif Aliyev. 
 

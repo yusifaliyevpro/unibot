@@ -1,13 +1,18 @@
 saveExact: true
+engineStrict: true
 minimumReleaseAge: 1440
+minimumReleaseAgeExcludePrune: true
 trustPolicy: "no-downgrade"
-trustPolicyExclude:
-  - chokidar@4.0.3
-  - undici-types@6.21.0
+trustPolicyExcludePrune: true
 allowBuilds:
-  "@nestjs/core": true
   "@prisma/engines": true
   "@swc/core": true
   prisma: true
   puppeteer: true
-  sharp: true
+minimumReleaseAgeExclude:
+  - "@nestjs/common@12.1.0"
+  - "@nestjs/config@12.0.1"
+  - "@nestjs/core@12.1.0"
+  - "@nestjs/platform-express@12.1.0"
+  - "@nestjs/schematics@12.0.5"
+  - dotenv@18.0.3
