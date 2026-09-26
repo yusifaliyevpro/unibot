@@ -5,13 +5,12 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Cron } from "@nestjs/schedule";
 import { getWeek } from "date-fns";
 import * as QRCode from "qrcode";
-import { groups, SuperAdminID, UniBotID } from "../../lib/constants.js";
+import { groups, UniBotID } from "../../lib/constants.js";
 import { isSalam, isLion, getCommand, tomorrow } from "../../lib/utils.js";
 import { type GroupChat } from "../../lib/whatsapp.ts";
 import { GoogleCalendarService } from "../calendar/calendar.service.js";
 import { GameService } from "../game/game.service.js";
 import { ScheduleService } from "../schedule/schedule.service.js";
-import { TeacherService } from "../teacher/teacher.service.js";
 import client from "./client.js";
 import { handleAIGroupMention } from "./handlers/ai.handler.js";
 import { handleHelpBox } from "./handlers/help.handler.js";
@@ -26,7 +25,6 @@ export class BotService implements OnModuleInit {
     private eventEmitter: EventEmitter2,
     private gameService: GameService,
     private scheduleService: ScheduleService,
-    private teacherService: TeacherService,
     private calendarService: GoogleCalendarService,
   ) {}
 
@@ -37,31 +35,23 @@ export class BotService implements OnModuleInit {
     client.on("auth_failure", () => {
       console.error("AUTHENTICATION FAILURE");
     });
-    client.on("loading_screen", (percent) => {
-      this.logger.log(`Loading... ${percent}`);
-    });
-
     client.on("ready", async () => {
       await client.sendPresenceAvailable();
-      await client.setAutoDownloadDocuments(false);
-      await client.setAutoDownloadPhotos(false);
-      await client.setAutoDownloadAudio(false);
-      await client.setAutoDownloadVideos(false);
 
       this.logger.log("🟢 You're connected successfully!");
       // NOTE: DELETE THIS PART, If you just forked the repo and want to test it.
       const uniChat = (await client.getChatById(groups.UNICHAT)) as GroupChat;
       const uniMates = uniChat.participants.map((participant) => participant.id._serialized);
-      await this.teacherService.notifySuperAdminAboutMessages();
       // till here
 
+      // "ready" fires again after a re-login, avoid duplicate handlers
+      client.removeAllListeners("message");
       client.on("message", async (msg) => {
         try {
           const body = msg.body.trim().toLowerCase();
           const isGroupMateOrChat = [...uniMates, groups.UNICHAT, groups.INFORMATION, groups.FINAL_EXAM].includes(msg.from);
           const commands = getCommand(body);
           const chat = await msg.getChat();
-          const isTeacher = await this.teacherService.isTeacher(msg.from);
           const quotedMessage = msg.hasQuotedMsg ? await msg.getQuotedMessage() : null;
           const isUniBotMentioned = [...msg.mentionedIds, quotedMessage?.author].some((mention) => mention === UniBotID);
           const isAdmin = chat.isGroup && (chat as GroupChat).participants.some((p) => p.isAdmin && p.id._serialized === msg.author);
@@ -85,26 +75,6 @@ export class BotService implements OnModuleInit {
             await sendStateTyping();
             if (chat.isGroup && !isAdmin) return await msg.reply("Sadəcə qrup Adminləri oyun başlada bilər!");
             await this.gameService.handleGameStart(msg, chat);
-          }
-
-          // Teacher Registration
-          if (!chat.isGroup && commands.isRegister && !body.includes("@quote")) {
-            await sendStateTyping();
-            await this.teacherService.createTeacher(msg);
-            return;
-          }
-
-          // Forward message to Teacher
-          if (commands.isForwardToTeacher && chat.isGroup && msg.author === SuperAdminID && msg.hasQuotedMsg) {
-            await this.teacherService.forwardMessageToTeacherFromChat(msg);
-          }
-
-          // Teacher Chat
-          if (isTeacher) {
-            if (commands.isRegister) {
-              return await msg.reply("You already signed up! Just write your messages or send media to forward the *6324E* Group");
-            }
-            return await this.teacherService.forwardTeacherMessageTo(chat, SuperAdminID, msg);
           }
 
           // Send AI response
@@ -161,14 +131,6 @@ export class BotService implements OnModuleInit {
             await handleConvertToPDF(quotedmsg, msg);
           }
 
-          // Clear Messages
-          if (commands.isClear && msg.from === SuperAdminID) {
-            await sendStateTyping();
-            await chat.sendMessage("Clearing all messages...");
-            await this.clearAllMessages();
-            await chat.sendMessage("All messages cleared successfully!");
-          }
-
           // Echo Message
           if (commands.isEcho) {
             await sendStateTyping();
@@ -190,27 +152,6 @@ export class BotService implements OnModuleInit {
     });
 
     await client.initialize().then(() => this.logger.log("🟢 Whatsapp web is initialized successfully!"));
-  }
-
-  async clearAllMessages() {
-    try {
-      const chats = await client.getChats();
-      this.logger.log(`🧹 Starting to clear messages in ${chats.length} chats...`);
-      for (const chat of chats) {
-        try {
-          if (!(await this.teacherService.isTeacher(chat.id._serialized))) {
-            await chat.clearMessages();
-            this.logger.log(`🧹 Cleared messages in chat: ${chat.name || chat.id._serialized}`);
-          }
-        } catch (error) {
-          this.logger.error(`❌ Failed to clear messages in chat: ${chat.id._serialized}`, error);
-        }
-      }
-
-      this.logger.log(`✅ All chats cleared successfully`);
-    } catch (error) {
-      this.logger.error("❌ An error occurred while clearing all chats", error);
-    }
   }
 
   private async sendDailySchedule(time: "16:20" | "17:50") {

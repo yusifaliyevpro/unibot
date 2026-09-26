@@ -8,7 +8,8 @@ allowBuilds:
   "@prisma/engines": true
   "@swc/core": true
   prisma: true
-  puppeteer: true
+  baileys: true
+  protobufjs: true
 minimumReleaseAgeExclude:
   - "@nestjs/common@12.1.0"
   - "@nestjs/config@12.0.1"

@@ -12,8 +12,7 @@ export async function handleConvertToPDF(msg: Message, commandMsg: Message) {
   try {
     // Check media size from message metadata
     if (!msg.hasMedia) await commandMsg.reply("You must reply to a document");
-    const mediaMetadata = msg as Message & { _data: { size: number } };
-    const mediaSize = (mediaMetadata._data.size || 0) / (1024 * 1024);
+    const mediaSize = (msg.size || 0) / (1024 * 1024);
     if (mediaSize > 21) return await commandMsg.reply("Maximum size is 20MB!");
 
     await commandMsg.react("⏳");

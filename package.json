@@ -19,7 +19,8 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint",
-    "lint:fix": "oxlint --fix"
+    "lint:fix": "oxlint --fix",
+    "check": "greenly"
   },
   "dependencies": {
     "@adobe/pdfservices-node-sdk": "4.1.0",
@@ -35,16 +36,17 @@
     "@prisma/adapter-neon": "7.9.1",
     "ai": "7.0.109",
     "axios": "1.20.0",
+    "baileys": "7.0.0-rc14",
     "date-fns": "4.4.0",
     "dotenv": "18.0.2",
     "express": "5.2.1",
     "globals": "17.12.0",
-    "puppeteer": "24.38.0",
+    "node-webpmux": "3.2.1",
+    "pino": "10.3.1",
     "qrcode": "1.5.4",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "sharp": "0.35.4",
-    "whatsapp-web.js": "1.34.7",
     "wikipedia": "2.5.0",
     "zod": "4.6.5"
   },
@@ -57,6 +59,7 @@
     "@types/express": "5.0.6",
     "@types/node": "24.13.6",
     "@types/qrcode": "1.5.6",
+    "greenly": "1.1.6",
     "oxfmt": "0.70.0",
     "oxlint": "1.85.0",
     "prisma": "7.9.1",
