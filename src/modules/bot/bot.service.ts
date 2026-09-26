@@ -5,7 +5,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Cron } from "@nestjs/schedule";
 import { getWeek } from "date-fns";
 import * as QRCode from "qrcode";
-import { groups, UniBotID } from "../../lib/constants.js";
+import { groups, SuperAdminID, UniBotID } from "../../lib/constants.js";
 import { isSalam, isLion, getCommand, tomorrow } from "../../lib/utils.js";
 import { type GroupChat } from "../../lib/whatsapp.ts";
 import { GoogleCalendarService } from "../calendar/calendar.service.js";
@@ -42,6 +42,7 @@ export class BotService implements OnModuleInit {
       // NOTE: DELETE THIS PART, If you just forked the repo and want to test it.
       const uniChat = (await client.getChatById(groups.UNICHAT)) as GroupChat;
       const uniMates = uniChat.participants.map((participant) => participant.id._serialized);
+      await client.fetchLidMappings([SuperAdminID, ...uniMates]);
       // till here
 
       // "ready" fires again after a re-login, avoid duplicate handlers

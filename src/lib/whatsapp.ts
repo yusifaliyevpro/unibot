@@ -426,6 +426,9 @@ export class Client extends EventEmitter<ClientEvents> {
   async getChatById(jid: string): Promise<Chat> {
     if (isJidGroup(jid)) {
       const metadata = await this.groupMetadata(jid);
+      // Remember LID <-> PN pairs so private messages from these members resolve to their numbers
+      const pairs = metadata.participants.flatMap((p) => (isLidUser(p.id) && p.phoneNumber ? [{ lid: p.id, pn: p.phoneNumber }] : []));
+      if (pairs.length) await this.sock.signalRepository.lidMapping.storeLIDPNMappings(pairs);
       const participants = await Promise.all(
         metadata.participants.map(async (p) => ({
           id: { _serialized: await this.resolveId(p.id, p.phoneNumber) },
@@ -438,6 +441,17 @@ export class Client extends EventEmitter<ClientEvents> {
 
     const id = await this.resolveId(jid);
     return new Chat(this, id, this.names.get(id) ?? this.names.get(jidNormalizedUser(jid)) ?? id.split("@")[0]);
+  }
+
+  /** Fetches (from WhatsApp if unknown) and stores the LIDs of these numbers, so their LID messages resolve to them */
+  async fetchLidMappings(pns: string[]) {
+    await this.sock.signalRepository.lidMapping.getLIDsForPNs(pns);
+  }
+
+  /** Stable id of a user (their LID). PN -> LID can always be fetched from WhatsApp, unlike the reverse */
+  async getLid(jid: string) {
+    if (!isPnUser(jid)) return jidNormalizedUser(jid);
+    return jidNormalizedUser((await this.sock.signalRepository.lidMapping.getLIDForPN(jid)) ?? jid);
   }
 
   getContactById(jid: string, pushName?: string | null): Contact {

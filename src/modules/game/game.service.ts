@@ -36,7 +36,7 @@ export class GameService {
         }
         await sendMessage(questionText);
       };
-      const session = await this.GameSession({ isActive: true, phoneNumber: msg.from });
+      const session = await this.GameSession({ isActive: true, phoneNumber: await client.getLid(msg.from) });
       if (!session) return;
       const gamePackage = gamePackages[session.packageIndex];
       const isFinished = gamePackage.questions.length === session.lastQuestion + 1;
@@ -141,7 +141,7 @@ export class GameService {
       const session = await this.createGameSession({
         lastQuestion: 0,
         packageID: gamePackage.id,
-        phoneNumber: msg.from,
+        phoneNumber: await client.getLid(msg.from),
         packageIndex: gamePackageIndex,
         isActive: true,
       });
@@ -188,7 +188,8 @@ export class GameService {
     });
   }
 
-  async hasActiveSession(phoneNumber: string): Promise<boolean> {
+  async hasActiveSession(from: string): Promise<boolean> {
+    const phoneNumber = await client.getLid(from);
     return !!(await this.prisma.gameSession.findMany({ where: { phoneNumber, isActive: true } })).length;
   }
   private async createGameSession(data: Prisma.GameSessionCreateInput): Promise<GameSession> {
@@ -208,7 +209,7 @@ export class GameService {
   private async verifyAnswerByAI(answer: string, considered: string | null, userAnswer: string) {
     try {
       const { output } = await generateText({
-        model: openrouter("deepseek/deepseek-chat-v3.1"),
+        model: openrouter.chat("deepseek/deepseek-v4-flash"),
         output: Output.object({ schema: answerVerificationSchema }),
         prompt: `Sən çox dəqiq çalışan yoxlayıcı bir oyun süni intellektisən.
 İstifadəçinin cavabının düzgün olub-olmadığını aşağıdakı "doğru cavab"a əsaslanaraq qiymətləndir.

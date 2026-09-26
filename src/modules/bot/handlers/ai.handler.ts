@@ -34,7 +34,7 @@ export async function handleAIGroupMention(msg: Message, chat: GroupChat, isGrou
     }
 
     const { text } = await generateText({
-      model: openrouter("deepseek/deepseek-chat-v3.1"),
+      model: openrouter.chat("deepseek/deepseek-v4-flash"),
       messages: [...last5MessagesArray, { role: "user", content: prompt }],
       system: AI_SYSTEM_PROMPT(chat.name, isGroupMateOrChat),
     });
