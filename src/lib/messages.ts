@@ -36,10 +36,4 @@ export const adminHelpbox = `
 *🔐 Bot Admin only*
 
 🆔 ${commands.isConfirm} - Get the chat ID (for .env group IDs)
-🗣 ${commands.isEcho} _[text]_ - Send the text as UniBot
-
-*🧠 In-game controls*
-
-⏭ ${commands.isPass} - Skip the question and show the answer
-🛑 ${commands.isQuit} - Finish the game (only group admins in groups)
-${commands.isRight} - Reply to an answer to mark it correct (group admins)`;
+🗣 ${commands.isEcho} _[text]_ - Send the text as UniBot`;

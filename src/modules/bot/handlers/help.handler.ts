@@ -7,8 +7,8 @@ import type { Chat, Message } from "../../../lib/whatsapp.ts";
 export async function handleHelpBox(chat: Chat, msg: Message, isGroupMateOrChat: boolean) {
   try {
     const isAZ = msg.body.toLowerCase().includes("@az");
-    const isSuperAdminDM = !chat.isGroup && msg.from === SuperAdminID;
-    const messageBody = (isAZ ? helpBoxAZ : helpBox + (isGroupMateOrChat ? universityHelpbox : "")) + (isSuperAdminDM ? adminHelpbox : "");
+    const isSuperAdmin = !chat.isGroup && msg.from === SuperAdminID;
+    const messageBody = (isAZ ? helpBoxAZ : helpBox + (isGroupMateOrChat ? universityHelpbox : "")) + (isSuperAdmin ? adminHelpbox : "");
     await chat.sendMessage(messageBody, { linkPreview: false });
     await msg.react("🚀");
     await sendLog(LogMessages.HELPBOX_HANDLER, msg);
