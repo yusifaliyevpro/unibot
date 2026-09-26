@@ -24,7 +24,8 @@ export async function handleAIGroupMention(msg: Message, chat: GroupChat, isGrou
     }
 
     for (const lastmsg of last5Messages) {
-      if (lastmsg.id._serialized === quotedMsgID) continue;
+      // The current and quoted messages are already part of the prompt
+      if (lastmsg.id._serialized === msg.id._serialized || lastmsg.id._serialized === quotedMsgID) continue;
       if (lastmsg.body.replace(/@\d{9,15}/g, "").trim() === "") continue;
       const senderName = lastmsg.fromMe ? "" : `${(await lastmsg.getContact()).pushname}: `;
       last5MessagesArray.push({
@@ -39,8 +40,10 @@ export async function handleAIGroupMention(msg: Message, chat: GroupChat, isGrou
       system: AI_SYSTEM_PROMPT(chat.name, isGroupMateOrChat),
     });
 
-    if (text === "" && count < 3) return await handleAIGroupMention(msg, chat, isGroupMateOrChat, count + 1);
-    else if (count === 3) throw new Error("The Request count (3) limit reached");
+    if (text === "") {
+      if (count < 3) return await handleAIGroupMention(msg, chat, isGroupMateOrChat, count + 1);
+      throw new Error("The Request count (3) limit reached");
+    }
 
     await chat.sendMessage(text);
     await msg.react("🤖");

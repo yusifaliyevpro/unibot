@@ -1,7 +1,7 @@
 import { defineConfig } from "oxlint";
 
 export default defineConfig({
-  plugins: ["typescript", "unicorn", "import"],
+  plugins: ["typescript", "unicorn", "import", "vitest"],
   categories: {
     suspicious: "warn",
   },
@@ -19,6 +19,11 @@ export default defineConfig({
       // Nest DI needs constructor param types as runtime values for decorator metadata
       files: ["**/*.service.ts", "**/*.controller.ts", "**/*.module.ts", "**/*.gateway.ts"],
       rules: { "typescript/consistent-type-imports": "off" },
+    },
+    {
+      // vi.fn(impl) already infers its type; stand-in classes and test Nest modules are empty by design
+      files: ["tests/**"],
+      rules: { "vitest/require-mock-type-parameters": "off", "typescript/no-extraneous-class": "off" },
     },
   ],
 });

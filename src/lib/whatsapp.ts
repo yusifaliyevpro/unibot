@@ -398,6 +398,7 @@ export class Client extends EventEmitter<ClientEvents> {
           !!message &&
           !!key.remoteJid &&
           !isJidStatusBroadcast(key.remoteJid) &&
+          !isJidNewsletter(key.remoteJid) &&
           toNumber(messageTimestamp) >= this.onlineSince,
       );
       if (toRead.length)

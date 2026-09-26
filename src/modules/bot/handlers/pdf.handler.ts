@@ -11,9 +11,9 @@ export async function handleConvertToPDF(msg: Message, commandMsg: Message) {
   let readStream: Readable | null = null;
   try {
     // Check media size from message metadata
-    if (!msg.hasMedia) await commandMsg.reply("You must reply to a document");
+    if (!msg.hasMedia) return await commandMsg.reply("You must reply to a document");
     const mediaSize = (msg.size || 0) / (1024 * 1024);
-    if (mediaSize > 21) return await commandMsg.reply("Maximum size is 20MB!");
+    if (mediaSize > 20) return await commandMsg.reply("Maximum size is 20MB!");
 
     await commandMsg.react("⏳");
 
@@ -80,7 +80,7 @@ export async function handleConvertToPDF(msg: Message, commandMsg: Message) {
     const pdfBuffer = await streamToBuffer(streamAsset.readStream);
 
     // 10. Choose a fileName and capitalize it
-    const originalFileName = media.filename ? media.filename.replaceAll(/\.(docx?|pptx?|png|xlsx?|doc|ppt|xls|)$/g, "").trim() : "";
+    const originalFileName = media.filename ? media.filename.replace(/\.[^.\s]+$/, "").trim() : "";
     const fileName = `${capitalize(originalFileName.trim() || "Converted")} (UniBot).pdf`;
 
     // 11. Send PDF buffer back to WhatsApp

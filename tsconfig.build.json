@@ -3,6 +3,8 @@
   "exclude": [
     "node_modules",
     "test",
+    "tests",
+    "vitest.config.ts",
     "dist",
     "cmd",
     "deprecated",

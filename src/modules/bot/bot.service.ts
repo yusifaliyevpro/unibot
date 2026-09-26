@@ -1,12 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import type { OnModuleInit } from "@nestjs/common";
 import { Logger } from "@nestjs/common";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Cron } from "@nestjs/schedule";
-import { getWeek } from "date-fns";
 import * as QRCode from "qrcode";
-import { groups, SHIFT, UniBotID } from "../../lib/constants.js";
-import { isSalam, isLion, getCommand, tomorrow, atTime } from "../../lib/utils.js";
+import { groups, SCHOOL_DAYS, SHIFT, UniBotID } from "../../lib/constants.js";
+import { isSalam, isLion, getCommand, atTime, nextSchoolDay } from "../../lib/utils.js";
 import { type GroupChat } from "../../lib/whatsapp.ts";
 import { GoogleCalendarService } from "../calendar/calendar.service.js";
 import { GameService } from "../game/game.service.js";
@@ -22,7 +20,6 @@ export class BotService implements OnModuleInit {
   private readonly logger = new Logger(BotService.name);
 
   constructor(
-    private eventEmitter: EventEmitter2,
     private gameService: GameService,
     private scheduleService: ScheduleService,
     private calendarService: GoogleCalendarService,
@@ -69,7 +66,7 @@ export class BotService implements OnModuleInit {
           }
 
           // Start a new Game
-          if (commands.isStart && (isAdmin || !chat.isGroup)) {
+          if (commands.isStart) {
             await sendStateTyping();
             if (chat.isGroup && !isAdmin) return await msg.reply("Sadəcə qrup Adminləri oyun başlada bilər!");
             await this.gameService.handleGameStart(msg, chat);
@@ -136,7 +133,7 @@ export class BotService implements OnModuleInit {
           // Echo Message
           if (commands.isEcho) {
             await sendStateTyping();
-            await chat.sendMessage(msg.body.replace("/echo", "").trim(), { linkPreview: false });
+            await chat.sendMessage(msg.body.replace(/\/echo/i, "").trim(), { linkPreview: false });
           }
         } catch (error) {
           console.log(error);
@@ -169,17 +166,14 @@ export class BotService implements OnModuleInit {
       if (time === "beforeLastSlot" && hasLastSlotLesson) return;
       if (time === "afterLastSlot" && !hasLastSlotLesson) return;
 
-      let targetDay = tomorrow(new Date());
-      // If it's Thursday, set target day to next Monday
-      if (new Date().getDay() === 4) targetDay = new Date(targetDay.setDate(targetDay.getDate() + 3));
+      // On the last lesson day of the week this is Monday's schedule
+      const targetDay = nextSchoolDay(new Date(), SCHOOL_DAYS);
 
       const UniGroups = [groups.UNICHAT, groups.INFORMATION];
-      const week = getWeek(targetDay);
       const lessons = await this.calendarService.getSchedule(targetDay);
-      if (!lessons) return;
       for (const group of UniGroups) {
         const chat = await client.getChatById(group);
-        const scheduleText = this.scheduleService.generateScheduleText(lessons, true, week % 2 === 0);
+        const scheduleText = this.scheduleService.generateScheduleText(lessons, targetDay);
         const schmsg = await chat.sendMessage(scheduleText);
         await schmsg?.pin(86400);
       }

@@ -9,6 +9,7 @@ import { LogMessages, userFriendlyMessages } from "../../../lib/logger_messages.
 import { type Chat, type Message, MessageMedia, MessageTypes } from "../../../lib/whatsapp.ts";
 
 export async function handleSticker(msg: Message, chat: Chat) {
+  let tempImagePath = "";
   try {
     const quotedMsg = await msg.getQuotedMessage();
     if (quotedMsg.type === MessageTypes.IMAGE && !quotedMsg.body.trim()) {
@@ -28,8 +29,8 @@ export async function handleSticker(msg: Message, chat: Chat) {
         const image = await quotedMsg.downloadMedia();
         const base64Image = image.data;
         const fileName = `image_${Date.now()}.png`;
-        const filePath = path.join("public", fileName);
-        await fs.promises.writeFile(filePath, Buffer.from(base64Image, "base64"));
+        tempImagePath = path.join("public", fileName);
+        await fs.promises.writeFile(tempImagePath, Buffer.from(base64Image, "base64"));
 
         base64URL = `${BASE_URL}/public/${fileName}`;
       }
@@ -54,13 +55,7 @@ export async function handleSticker(msg: Message, chat: Chat) {
               },
             },
             text,
-            replyMessage: quotedMsg.hasQuotedMsg
-              ? {
-                  name: (await quotedMsg.getContact()).pushname,
-                  text: (await quotedMsg.getQuotedMessage()).body,
-                  chatId: 5,
-                }
-              : {},
+            replyMessage: quotedMsg.hasQuotedMsg ? await replyBubble(await quotedMsg.getQuotedMessage()) : {},
           },
         ],
       };
@@ -69,11 +64,14 @@ export async function handleSticker(msg: Message, chat: Chat) {
 
       const buffer = Buffer.from(response.data.data.image, "base64");
 
-      const resizedSticker = await sharp(buffer)
+      // Separate pipelines: sharp always resizes before extending within one
+      const padded = await sharp(buffer)
         .extend({
           right: 20,
           background: { r: 0, g: 0, b: 0, alpha: 0 },
         })
+        .toBuffer();
+      const resizedSticker = await sharp(padded)
         .resize({
           width: 512,
           height: 512,
@@ -88,15 +86,20 @@ export async function handleSticker(msg: Message, chat: Chat) {
       await msg.react("✅");
 
       await sendLog(LogMessages.STICKER_HANDLER, msg);
-
-      if (base64URL) await fs.promises.unlink(path.join("public", path.basename(base64URL))).catch(() => {});
     } else {
       await msg.react("❌");
       await msg.reply(userFriendlyMessages.STICKER_ONLY_TEXT_AND_IMAGE);
     }
   } catch (error: unknown) {
     await sendErrorLog(LogMessages.STICKER_HANDLER, msg, error);
+  } finally {
+    if (tempImagePath) await fs.promises.unlink(tempImagePath).catch(() => {});
   }
+}
+
+/** The "replying to" bubble shows the author and text of the message the quoted one replied to */
+async function replyBubble(repliedTo: Message) {
+  return { name: (await repliedTo.getContact()).pushname, text: repliedTo.body, chatId: 5 };
 }
 
 const stickerOptions = (stickerName: string) => ({

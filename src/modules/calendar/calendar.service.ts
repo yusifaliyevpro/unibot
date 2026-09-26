@@ -60,8 +60,9 @@ export class GoogleCalendarService {
     if (events.length) {
       const lessonSummary = events[0].summary;
       if (!lessonSummary) return null;
-      const subject = this.getSubject(lessonSummary.split("(")[0].trim().toLowerCase());
-      const lessonName = subject ? subject.fullName : lessonSummary.split("(")[0].trim();
+      const short = lessonSummary.split(/[(|]/)[0].trim();
+      const subject = this.getSubject(short.toLowerCase());
+      const lessonName = subject ? subject.fullName : short;
       const match = lessonSummary.match(/\((\w)\)/);
       const lessonType = match ? " " + match[0].trim() : "";
       let teacher = "";

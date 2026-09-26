@@ -25,6 +25,10 @@ type Lesson = { start: Time; end: Time };
 
 const REMINDER_MINUTES_BEFORE = 15;
 
+// Lesson days of the semester: 5 = Monday-Friday, 4 = Monday-Thursday
+export const SCHOOL_DAYS = 5;
+const SCHOOL_DAYS_CRON = `1-${SCHOOL_DAYS}`;
+
 /** Cron expression at `time` minus `minutesBefore` on the given weekdays */
 function cronAt(time: Time, days: string, minutesBefore = 0) {
   const [hour, minute] = time.split(":").map(Number);
@@ -40,9 +44,9 @@ function createShift(lessons: [Lesson, Lesson, Lesson]) {
     end: lessons[2].end,
     lastSlotStart: lessons[2].start,
     /** door number of `lesson` is sent to UNICHAT at `cron` */
-    doorReminders: lessons.map((l) => ({ cron: cronAt(l.start, "1-5", REMINDER_MINUTES_BEFORE), lesson: l.start })),
+    doorReminders: lessons.map((l) => ({ cron: cronAt(l.start, SCHOOL_DAYS_CRON, REMINDER_MINUTES_BEFORE), lesson: l.start })),
     /** tomorrow's schedule is posted when the 2nd lesson ends if there's no 3rd one, otherwise when the 3rd ends */
-    scheduleCrons: { beforeLastSlot: cronAt(lessons[1].end, "1-4"), afterLastSlot: cronAt(lessons[2].end, "1-4") },
+    scheduleCrons: { beforeLastSlot: cronAt(lessons[1].end, SCHOOL_DAYS_CRON), afterLastSlot: cronAt(lessons[2].end, SCHOOL_DAYS_CRON) },
   };
 }
 

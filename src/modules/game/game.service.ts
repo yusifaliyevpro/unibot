@@ -17,88 +17,58 @@ export class GameService {
   constructor(private prisma: PrismaService) {}
 
   async handleGame(msg: Message, chat: Chat, isAdmin: boolean) {
-    const reactSuccess = async () => await msg.react("✅");
-    const reactError = async () => await msg.react("❌");
     try {
-      const body = msg.body.trim().toLowerCase();
-      const { isQuit, isRight, isPass } = getCommand(body);
+      const { isQuit, isRight, isPass } = getCommand(msg.body.trim().toLowerCase());
       const sendStateTyping = async () => await chat.sendStateTyping();
-      const sendMessage = async (message: string | MessageMedia) => await chat.sendMessage(message);
 
-      const sendQuestion = async (message: string, rekvizit: null | { text: boolean; rekvizit: string }) => {
-        let questionText = message.trim();
-        if (rekvizit) {
-          if (rekvizit.text) questionText = "_*Rekvizit:*_ " + rekvizit.rekvizit.trim() + "\n\n" + questionText;
-          else {
-            const codeImage = await MessageMedia.fromUrl("https://api.3sual.az/images/" + rekvizit.rekvizit);
-            await sendMessage(codeImage);
-          }
-        }
-        await sendMessage(questionText);
-      };
       const session = await this.GameSession({ isActive: true, phoneNumber: msg.from });
       if (!session) return;
       const gamePackage = gamePackages[session.packageIndex];
-      const isFinished = gamePackage.questions.length === session.lastQuestion + 1;
-      let question = gamePackage.questions[session.lastQuestion];
-      const updateLast = async () => await this.UpdateLastQuestion(session.id);
-      const answerText =
-        `*Cavab: ${question.answer.trim()}*\n\n` +
-        `*Müəllif${question.authors.length > 1 ? "lər" : ""}:* ${question.authors ? `${question.authors.join(", ")}` : "Yoxdur"}\n\n` +
-        `${question.considered ? `*Meyar:* ${question.considered.trim()}\n\n` : ""}` +
-        `*Şərh:* ${question.comment?.trim() || "*Yoxdur*"}`;
+      const questionCount = gamePackage.questions.length;
+      const isLastQuestion = questionCount === session.lastQuestion + 1;
+      const question = gamePackage.questions[session.lastQuestion];
+      const sendAnswer = async (to: Message = msg) => await to.reply(this.answerText(question), undefined, { linkPreview: false });
 
-      const sendAnswer = async () => await msg.reply(answerText, undefined, { linkPreview: false });
+      // Moves on to the next question, or finishes the game after the last one
+      const advance = async (isCorrect: boolean) => {
+        await this.UpdateLastQuestion(session.id);
+        if (isCorrect) await this.markAsCorrect(session.id);
+        if (isLastQuestion) return await this.quitGame(chat, msg, session.id, questionCount);
+        await sendStateTyping();
+        await this.sendQuestion(chat, gamePackage.questions[session.lastQuestion + 1], session.lastQuestion + 2);
+      };
 
       if (isAdmin && msg.hasQuotedMsg && isRight) {
         const quotedMsg = await msg.getQuotedMessage();
         await quotedMsg.react("✅");
-        await quotedMsg.reply(answerText, undefined, { linkPreview: false });
-        await updateLast();
-        await this.markAsCorrect(session.id);
-        if (!isFinished) {
-          await sendStateTyping();
-          question = gamePackage.questions[session.lastQuestion + 1];
-          await sendQuestion(`${session.lastQuestion + 2}. ${question.question}`, question.rekvizit);
-        }
+        await sendAnswer(quotedMsg);
+        await advance(true);
       } else if (isQuit) {
         await sendStateTyping();
-        if (chat.isGroup && !isAdmin) await msg.reply(gameMsgs.ONLY_ADMINS_CAN_QUIT);
+        if (chat.isGroup && !isAdmin) return await msg.reply(gameMsgs.ONLY_ADMINS_CAN_QUIT);
         await sendAnswer();
-        await this.quitGame(chat, msg, session, gamePackage.questions.length);
+        await this.quitGame(chat, msg, session.id, questionCount);
       } else if (isPass) {
         await sendStateTyping();
-        await updateLast();
         await sendAnswer();
-        await sendStateTyping();
-        if (!isFinished) {
-          question = gamePackage.questions[session.lastQuestion + 1];
-          await sendQuestion(`${session.lastQuestion + 2}. ${question.question}`, question.rekvizit);
-        }
+        await advance(false);
       } else {
         await msg.react("⏳");
+        // Azerbaijani casing, so "BAKI" matches "Bakı"
+        const answer = msg.body.toLocaleLowerCase("az");
+        const matches = (expected: string | null) => !!expected && answer.includes(expected.toLocaleLowerCase("az"));
         if (
-          body.includes(question.answer.toLowerCase()) ||
-          (question.considered && body.includes(question.considered.toLowerCase())) ||
+          matches(question.answer) ||
+          matches(question.considered) ||
           (await this.verifyAnswerByAI(question.answer, question.considered, msg.body))
         ) {
           await sendStateTyping();
-          await reactSuccess();
+          await msg.react("✅");
           await sendAnswer();
-          await updateLast();
-          await this.markAsCorrect(session.id);
-          if (!isFinished) {
-            question = gamePackage.questions[session.lastQuestion + 1];
-            await sendQuestion(`${session.lastQuestion + 2}. ${question.question}`, question.rekvizit);
-          }
+          await advance(true);
         } else {
-          await reactError();
+          await msg.react("❌");
         }
-      }
-
-      if (gamePackage.questions.length === session.lastQuestion + 1) {
-        await reactSuccess();
-        await this.quitGame(chat, msg, session, gamePackage.questions.length);
       }
     } catch (error) {
       await sendErrorLog(LogMessages.GAME_HANDLER, msg, error);
@@ -107,19 +77,6 @@ export class GameService {
 
   async handleGameStart(msg: Message, chat: Chat) {
     try {
-      const sendQuestion = async (message: string, rekvizit: null | { text: boolean; rekvizit: string }) => {
-        let questionText = message.trim();
-        if (rekvizit) {
-          if (rekvizit.text) questionText = "_*Rekvizit:*_ " + rekvizit.rekvizit.trim() + "\n\n" + questionText;
-          else {
-            const rekvizitImagePath = "https://api.3sual.az/images/" + rekvizit.rekvizit;
-            const codeImage = await MessageMedia.fromUrl(rekvizitImagePath);
-            await chat.sendMessage(codeImage);
-          }
-        }
-        await chat.sendMessage(questionText, { linkPreview: false });
-      };
-
       const bodyParts = msg.body.trim().toLowerCase().split(/\s+/);
       let gamePackageIndex: number;
 
@@ -150,13 +107,12 @@ export class GameService {
       await chat.sendMessage(
         `Siz *${gamePackage.id}* nömrəli, ${gamePackage.name ? `"${gamePackage.name}" adlı` : "adsız"} paketi oynayırsınız.\n\n` +
           `Bu Paket *${gamePackage.questions.length}* sualdan ibarətdir.\n` +
-          `${gamePackage.editors ? `*Redaktor${gamePackage.editors.length > 1 ? "lar" : ""}*: ${gamePackage.editors.join(", ")}\n` : ""}` +
+          `${gamePackage.editors.length ? `*Redaktor${gamePackage.editors.length > 1 ? "lar" : ""}*: ${gamePackage.editors.join(", ")}\n` : ""}` +
           `Paket linki: https://3sual.az/package/${gamePackage.id}`,
         { linkPreview: false },
       );
 
-      const question = gamePackage.questions[session.lastQuestion];
-      await sendQuestion(`${session.lastQuestion + 1}. ${question.question}`, question.rekvizit);
+      await this.sendQuestion(chat, gamePackage.questions[session.lastQuestion], session.lastQuestion + 1);
 
       await msg.react("🏓");
 
@@ -171,15 +127,33 @@ export class GameService {
     }
   }
 
-  private async quitGame(chat: Chat, msg: Message, session: GameSession, questionCount: number) {
-    await this.prisma.gameSession.update({ data: { isActive: false }, where: { id: session.id } });
+  private async quitGame(chat: Chat, msg: Message, sessionId: string, questionCount: number) {
+    const session = await this.prisma.gameSession.update({ data: { isActive: false }, where: { id: sessionId } });
 
     await chat.sendMessage(
       `🧾 Paketdəki sualların sayı: ${questionCount}
-📈 Oynanılan sual sayı: ${session.lastQuestion + 1}
+📈 Oynanılan sual sayı: ${Math.min(session.lastQuestion + 1, questionCount)}
 ✅ Doğru cavabların sayı: ${session.numberOfCorrectAnswers}`,
     );
     await msg.reply(gameMsgs.FINISHED);
+  }
+
+  private async sendQuestion(chat: Chat, question: Question, number: number) {
+    let questionText = `${number}. ${question.question.trim()}`;
+    const { rekvizit } = question;
+    if (rekvizit?.text) questionText = `_*Rekvizit:*_ ${rekvizit.rekvizit.trim()}\n\n${questionText}`;
+    else if (rekvizit) await chat.sendMessage(await MessageMedia.fromUrl(`https://api.3sual.az/images/${rekvizit.rekvizit}`));
+    await chat.sendMessage(questionText, { linkPreview: false });
+  }
+
+  private answerText(question: Question) {
+    const { authors } = question;
+    return (
+      `*Cavab: ${question.answer.trim()}*\n\n` +
+      `*Müəllif${authors.length > 1 ? "lər" : ""}:* ${authors.length ? authors.join(", ") : "Yoxdur"}\n\n` +
+      `${question.considered ? `*Meyar:* ${question.considered.trim()}\n\n` : ""}` +
+      `*Şərh:* ${question.comment?.trim() || "*Yoxdur*"}`
+    );
   }
 
   private async GameSession(GameSessionWhereUniqueInput: Prisma.GameSessionWhereInput): Promise<GameSession | null> {
@@ -214,10 +188,10 @@ export class GameService {
 İstifadəçinin cavabının düzgün olub-olmadığını aşağıdakı "doğru cavab"a əsaslanaraq qiymətləndir.
 Kiçik yazı səhvlərinə, fərqli yazılışlara, sinonimlərə və eyni mənanı verən ifadələrə icazə ver.
           
-${considered && "Sayılma meyarı isə cavabın yazıla biləcəyi 2-ci variantdır, əgər əsas cavabla uyğunluq olmasa, sayılma meyarı ilə yoxla"}
+${considered ? "Sayılma meyarı isə cavabın yazıla biləcəyi 2-ci variantdır, əgər əsas cavabla uyğunluq olmasa, sayılma meyarı ilə yoxla" : ""}
 
 Doğru cavab: ${answer}
-${considered && `Sayılma Meyarı: ${considered}`}
+${considered ? `Sayılma Meyarı: ${considered}` : ""}
 İstifadəçinin cavabı: ${userAnswer}
           
 Bu cavab doğru hesab oluna bilərmi?`,
@@ -229,6 +203,8 @@ Bu cavab doğru hesab oluna bilərmi?`,
     }
   }
 }
+
+type Question = (typeof gamePackages)[number]["questions"][number];
 
 const answerVerificationSchema = z.object({ correct: z.boolean() });
 

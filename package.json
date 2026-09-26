@@ -20,7 +20,9 @@
     "fmt:check": "oxfmt --check",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "check": "greenly"
+    "check": "greenly",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@adobe/pdfservices-node-sdk": "4.1.0",
@@ -29,7 +31,6 @@
     "@nestjs/common": "12.1.0",
     "@nestjs/config": "12.0.1",
     "@nestjs/core": "12.1.0",
-    "@nestjs/event-emitter": "12.0.1",
     "@nestjs/platform-express": "12.1.0",
     "@nestjs/schedule": "12.0.2",
     "@openrouter/ai-sdk-provider": "3.1.0",
@@ -67,6 +68,7 @@
     "ts-loader": "9.6.2",
     "ts-node": "10.9.2",
     "tsconfig-paths": "4.2.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "5.0.2"
   }
 }
