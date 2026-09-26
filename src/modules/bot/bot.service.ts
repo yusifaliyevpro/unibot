@@ -5,7 +5,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Cron } from "@nestjs/schedule";
 import { getWeek } from "date-fns";
 import * as QRCode from "qrcode";
-import { groups, SHIFT, SuperAdminID, UniBotID } from "../../lib/constants.js";
+import { groups, SHIFT, UniBotID } from "../../lib/constants.js";
 import { isSalam, isLion, getCommand, tomorrow, atTime } from "../../lib/utils.js";
 import { type GroupChat } from "../../lib/whatsapp.ts";
 import { GoogleCalendarService } from "../calendar/calendar.service.js";
@@ -42,7 +42,7 @@ export class BotService implements OnModuleInit {
       // NOTE: DELETE THIS PART, If you just forked the repo and want to test it.
       const uniChat = (await client.getChatById(groups.UNICHAT)) as GroupChat;
       const uniMates = uniChat.participants.map((participant) => participant.id._serialized);
-      await client.fetchLidMappings([SuperAdminID, ...uniMates]);
+      const uniBotId = await client.getLid(UniBotID);
       // till here
 
       // "ready" fires again after a re-login, avoid duplicate handlers
@@ -54,14 +54,11 @@ export class BotService implements OnModuleInit {
           const commands = getCommand(body);
           const chat = await msg.getChat();
           const quotedMessage = msg.hasQuotedMsg ? await msg.getQuotedMessage() : null;
-          const isUniBotMentioned = [...msg.mentionedIds, quotedMessage?.author].some((mention) => mention === UniBotID);
+          const isUniBotMentioned = [...msg.mentionedIds, quotedMessage?.author].some((mention) => mention === uniBotId);
           const isAdmin = chat.isGroup && (chat as GroupChat).participants.some((p) => p.isAdmin && p.id._serialized === msg.author);
 
           // Utils
           const sendStateTyping = async () => await chat.sendStateTyping();
-
-          // Send read receipt
-          await chat.sendSeen();
 
           // If have an active Game session
           if (await this.gameService.hasActiveSession(msg.from)) {

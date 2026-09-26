@@ -27,7 +27,7 @@ import webp from "node-webpmux";
 import pino from "pino";
 import sharp from "sharp";
 
-// Thin whatsapp-web.js style wrapper over Baileys
+// Thin whatsapp-web.js style wrapper over Baileys. Users are identified by their LID ("@lid"), the phone number jid is only a fallback
 
 const logger = pino({ level: "error" });
 
@@ -134,10 +134,6 @@ export class Chat {
 
   async sendStateTyping() {
     await this.client.sock.sendPresenceUpdate("composing", this.jid);
-  }
-
-  async sendSeen() {
-    await this.client.markChatRead(this.jid);
   }
 
   async fetchMessages({ limit = STORE_LIMIT }: { limit?: number } = {}) {
@@ -371,7 +367,7 @@ export class Client extends EventEmitter<ClientEvents> {
 
       if (connection === "open") {
         this.onlineSince = Math.floor(Date.now() / 1000);
-        this.info = { wid: { _serialized: jidNormalizedUser(sock.user!.id) }, pushname: sock.user?.name ?? "" };
+        this.info = { wid: { _serialized: jidNormalizedUser(sock.user!.lid ?? sock.user!.id) }, pushname: sock.user?.name ?? "" };
         this.emit("authenticated");
         if (!this.isReady) {
           this.isReady = true;
@@ -394,6 +390,19 @@ export class Client extends EventEmitter<ClientEvents> {
     });
 
     sock.ev.on("messages.upsert", async ({ messages, type }) => {
+      // Blue ticks for every live incoming message, whether or not the bot handles it
+      const toRead = messages.filter(
+        ({ key, message, messageTimestamp }) =>
+          type === "notify" &&
+          !key.fromMe &&
+          !!message &&
+          !!key.remoteJid &&
+          !isJidStatusBroadcast(key.remoteJid) &&
+          toNumber(messageTimestamp) >= this.onlineSince,
+      );
+      if (toRead.length)
+        void sock.readMessages(toRead.map((m) => m.key)).catch((error) => logger.error(error, "Failed to send read receipts"));
+
       for (const waMsg of messages) {
         const { key } = waMsg;
         const jid = key.remoteJid;
@@ -452,12 +461,9 @@ export class Client extends EventEmitter<ClientEvents> {
   async getChatById(jid: string): Promise<Chat> {
     if (isJidGroup(jid)) {
       const metadata = await this.groupMetadata(jid);
-      // Remember LID <-> PN pairs so private messages from these members resolve to their numbers
-      const pairs = metadata.participants.flatMap((p) => (isLidUser(p.id) && p.phoneNumber ? [{ lid: p.id, pn: p.phoneNumber }] : []));
-      if (pairs.length) await this.sock.signalRepository.lidMapping.storeLIDPNMappings(pairs);
       const participants = await Promise.all(
         metadata.participants.map(async (p) => ({
-          id: { _serialized: await this.resolveId(p.id, p.phoneNumber) },
+          id: { _serialized: await this.resolveId(p.id, p.lid) },
           isAdmin: !!p.admin,
           isSuperAdmin: p.admin === "superadmin",
         })),
@@ -469,15 +475,11 @@ export class Client extends EventEmitter<ClientEvents> {
     return new Chat(this, id, this.names.get(id) ?? this.names.get(jidNormalizedUser(jid)) ?? id.split("@")[0]);
   }
 
-  /** Fetches (from WhatsApp if unknown) and stores the LIDs of these numbers, so their LID messages resolve to them */
-  async fetchLidMappings(pns: string[]) {
-    await this.sock.signalRepository.lidMapping.getLIDsForPNs(pns);
-  }
-
-  /** Stable id of a user (their LID). PN -> LID can always be fetched from WhatsApp, unlike the reverse */
+  /** User id (LID) of a jid, e.g. a phone number from .env. PN -> LID is fetched from WhatsApp when unknown */
   async getLid(jid: string) {
     if (!isPnUser(jid)) return jidNormalizedUser(jid);
-    return jidNormalizedUser((await this.sock.signalRepository.lidMapping.getLIDForPN(jid)) ?? jid);
+    const lid = await this.sock.signalRepository.lidMapping.getLIDForPN(jid).catch(() => null);
+    return jidNormalizedUser(lid ?? jid);
   }
 
   getContactById(jid: string, pushName?: string | null): Contact {
@@ -524,19 +526,11 @@ export class Client extends EventEmitter<ClientEvents> {
     return this.messages.get(jidNormalizedUser(jid)) ?? [];
   }
 
-  /** @internal */
-  async markChatRead(jid: string) {
-    const last = this.storedMessages(jid).findLast((m) => !m.key.fromMe);
-    if (last) await this.sock.readMessages([last.key]);
-  }
-
-  /** Converts LID jids to phone number jids when the mapping is known */
+  /** LID of a user jid (`alt` is the other addressing form WhatsApp sent along, if any) */
   private async resolveId(jid: string, alt?: string | null) {
-    if (isLidUser(jid)) {
-      const pn = alt && isPnUser(alt) ? alt : await this.sock.signalRepository.lidMapping.getPNForLID(jid);
-      if (pn) return jidNormalizedUser(pn);
-    }
-    return jidNormalizedUser(jid);
+    if (isLidUser(jid)) return jidNormalizedUser(jid);
+    if (alt && isLidUser(alt)) return jidNormalizedUser(alt);
+    return await this.getLid(jid);
   }
 
   private async groupMetadata(jid: string) {

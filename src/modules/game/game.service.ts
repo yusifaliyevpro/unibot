@@ -36,7 +36,7 @@ export class GameService {
         }
         await sendMessage(questionText);
       };
-      const session = await this.GameSession({ isActive: true, phoneNumber: await client.getLid(msg.from) });
+      const session = await this.GameSession({ isActive: true, phoneNumber: msg.from });
       if (!session) return;
       const gamePackage = gamePackages[session.packageIndex];
       const isFinished = gamePackage.questions.length === session.lastQuestion + 1;
@@ -141,7 +141,7 @@ export class GameService {
       const session = await this.createGameSession({
         lastQuestion: 0,
         packageID: gamePackage.id,
-        phoneNumber: await client.getLid(msg.from),
+        phoneNumber: msg.from,
         packageIndex: gamePackageIndex,
         isActive: true,
       });
@@ -188,8 +188,7 @@ export class GameService {
     });
   }
 
-  async hasActiveSession(from: string): Promise<boolean> {
-    const phoneNumber = await client.getLid(from);
+  async hasActiveSession(phoneNumber: string): Promise<boolean> {
     return !!(await this.prisma.gameSession.findMany({ where: { phoneNumber, isActive: true } })).length;
   }
   private async createGameSession(data: Prisma.GameSessionCreateInput): Promise<GameSession> {
