@@ -1,4 +1,4 @@
-import { auth, calendar } from "@googleapis/calendar";
+import { auth, calendar, type calendar_v3 } from "@googleapis/calendar";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { GoogleCalendarService } from "../../../src/modules/calendar/calendar.service.ts";
 
@@ -18,7 +18,7 @@ vi.mock(import("@googleapis/calendar"), () => {
 
 const CALENDAR_ID = "6718afcc2fb6b3439a0846b80cb446c032144b1cb90101aee6472ce5f0997ff5@group.calendar.google.com";
 const list = () => vi.mocked(calendar({ version: "v3" }).events.list as unknown as (...args: unknown[]) => Promise<unknown>);
-const respond = (items?: { summary?: string }[]) => list().mockResolvedValueOnce({ data: { items } });
+const respond = (items?: calendar_v3.Schema$Event[]) => list().mockResolvedValueOnce({ data: { items } });
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -72,6 +72,8 @@ describe("getSchedule", () => {
 });
 
 describe("getNextLesson", () => {
+  const lesson = (summary?: string): calendar_v3.Schema$Event => ({ summary, start: { dateTime: "2026-09-28T09:00:00+04:00" } });
+
   test("queries the 80 minutes lesson starting at the given time today", async () => {
     respond([]);
     await new GoogleCalendarService().getNextLesson(10, 30);
@@ -91,13 +93,26 @@ describe("getNextLesson", () => {
     ["a lesson without a room", "TE (m) | Leyla | TBA", "⌛ _*TE (m) | Leyla*_ starts in *15 minutes* at *unknown*"],
     ["a lesson without a type", "GT | Nigar | 1-101", "⌛ _*Graph Theory | Nigar*_ starts in *15 minutes* at *1-101*"],
   ] as const)("announces %s", async ([, summary, expected]) => {
-    respond([{ summary }]);
+    respond([lesson(summary)]);
     await expect(new GoogleCalendarService().getNextLesson(9, 0)).resolves.toBe(expected);
   });
 
   test("uses only the first event", async () => {
-    respond([{ summary: "DS (L) | Şəbnəm | 6-606" }, { summary: "PH (M) | Əyyub | 6-404" }]);
+    respond([lesson("DS (L) | Şəbnəm | 6-606"), lesson("PH (M) | Əyyub | 6-404")]);
     await expect(new GoogleCalendarService().getNextLesson(9, 0)).resolves.toContain("DS (L)");
+  });
+
+  test("skips all-day events", async () => {
+    respond([
+      { summary: "Holiday", start: { date: "2026-09-28" } },
+      { summary: "DM (L) | Kamran | 3-401", start: { dateTime: "2026-09-28T09:00:00+04:00" } },
+    ]);
+    await expect(new GoogleCalendarService().getNextLesson(9, 0)).resolves.toContain("Discrete Mathematics");
+  });
+
+  test("returns null when there is only an all-day event", async () => {
+    respond([{ summary: "Holiday", start: { date: "2026-09-28" } }]);
+    await expect(new GoogleCalendarService().getNextLesson(9, 0)).resolves.toBeNull();
   });
 
   test("returns null without a lesson", async () => {
@@ -106,7 +121,7 @@ describe("getNextLesson", () => {
   });
 
   test("returns null for an event without a title", async () => {
-    respond([{}]);
+    respond([lesson()]);
     await expect(new GoogleCalendarService().getNextLesson(12, 0)).resolves.toBeNull();
   });
 });

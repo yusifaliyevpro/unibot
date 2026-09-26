@@ -20,20 +20,6 @@ describe("env derived constants", () => {
     expect(UniBotID).toBe("994500000001@s.whatsapp.net");
   });
 
-  test("uses the localhost url outside production", async () => {
-    vi.stubEnv("RAILWAY_ENVIRONMENT_NAME", "staging");
-    const { isInDev, BASE_URL } = await loadConstants();
-    expect(isInDev).toBe(true);
-    expect(BASE_URL).toBe("http://localhost:3000");
-  });
-
-  test("uses the railway url in production", async () => {
-    vi.stubEnv("RAILWAY_ENVIRONMENT_NAME", "production");
-    const { isInDev, BASE_URL } = await loadConstants();
-    expect(isInDev).toBe(false);
-    expect(BASE_URL).toBe("https://unibot.example.com");
-  });
-
   test.for(["UNICHAT_GROUP_ID", "LOG_GROUP_ID", "SUPER_ADMIN_PHONE_NUMBER", "UNIBOT_PHONE_NUMBER"])(
     "throws when %s is missing",
     async (name) => {

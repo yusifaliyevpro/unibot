@@ -56,9 +56,10 @@ export class GoogleCalendarService {
       orderBy: "startTime",
     });
 
-    const events: calendar_v3.Schema$Event[] = response.data.items || [];
-    if (events.length) {
-      const lessonSummary = events[0].summary;
+    // All-day events (no dateTime) aren't lessons
+    const lesson = (response.data.items || []).find((event) => event.start?.dateTime);
+    if (lesson) {
+      const lessonSummary = lesson.summary;
       if (!lessonSummary) return null;
       const short = lessonSummary.split(/[(|]/)[0].trim();
       const subject = this.getSubject(short.toLowerCase());

@@ -4,6 +4,7 @@ import { MockLanguageModelV4 } from "ai/test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { groups } from "../../../../src/lib/constants.ts";
 import { userFriendlyMessages } from "../../../../src/lib/logger_messages.ts";
+import { commands } from "../../../../src/lib/utils.ts";
 import client from "../../../../src/modules/bot/client.ts";
 import { handleAIGroupMention } from "../../../../src/modules/bot/handlers/ai.handler.ts";
 import type { ScheduleService } from "../../../../src/modules/schedule/schedule.service.ts";
@@ -190,6 +191,15 @@ describe("handleAIGroupMention", () => {
     expect(system).toContain('This chat is called "UniChat"');
     expect(system).toContain("/start — Starting an Intellectual Game");
     expect(system.includes("/schedule [1-5] /upper")).toBe(included);
+  });
+
+  test("suggests only existing commands", async () => {
+    aiResponds(reply("ok"));
+    const { chat, msg } = setup();
+    await handleAIGroupMention(msg, chat, true, scheduleService());
+    const suggested = received().system.match(/(?<=^|\s)\/\w+/gm);
+    expect(suggested).not.toHaveLength(0);
+    for (const command of suggested!) expect(Object.values(commands)).toContain(command);
   });
 
   test("retries empty replies and sends the first real one", async () => {

@@ -17,8 +17,6 @@ export const groups = {
 
 export const SuperAdminID = getEnvVar("SUPER_ADMIN_PHONE_NUMBER");
 export const UniBotID = getEnvVar("UNIBOT_PHONE_NUMBER");
-export const isInDev = process.env.RAILWAY_ENVIRONMENT_NAME !== "production";
-export const BASE_URL = isInDev ? getEnvVar("LOCALHOST_BASE_URL") : getEnvVar("RAILWAY_BASE_URL");
 
 type Time = `${number}:${number}`;
 type Lesson = { start: Time; end: Time };

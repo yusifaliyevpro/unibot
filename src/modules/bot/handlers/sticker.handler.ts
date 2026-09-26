@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import axios from "axios";
 import sharp from "sharp";
-import { BASE_URL, isInDev } from "../../../lib/constants.js";
 import { ENV } from "../../../lib/env.js";
 import { sendErrorLog, sendLog } from "../../../lib/logger.js";
 import { LogMessages, userFriendlyMessages } from "../../../lib/logger_messages.js";
@@ -23,16 +22,16 @@ export async function handleSticker(msg: Message, chat: Chat) {
       const username = quotedContact.pushname;
       const avatar = (await quotedContact.getProfilePicUrl()) || "";
 
-      let base64URL = "";
+      let imageURL = "";
 
-      if (quotedMsg.hasMedia && quotedMsg.type === MessageTypes.IMAGE) {
+      // The sticker generator downloads the image itself, so it needs a public https url
+      if (quotedMsg.hasMedia && quotedMsg.type === MessageTypes.IMAGE && ENV.PUBLIC_BASE_URL) {
         const image = await quotedMsg.downloadMedia();
-        const base64Image = image.data;
         const fileName = `image_${Date.now()}.png`;
         tempImagePath = path.join("public", fileName);
-        await fs.promises.writeFile(tempImagePath, Buffer.from(base64Image, "base64"));
+        await fs.promises.writeFile(tempImagePath, Buffer.from(image.data, "base64"));
 
-        base64URL = `${BASE_URL}/public/${fileName}`;
+        imageURL = new URL(`/public/${fileName}`, ENV.PUBLIC_BASE_URL).href;
       }
 
       const json = {
@@ -46,7 +45,7 @@ export async function handleSticker(msg: Message, chat: Chat) {
           {
             entities: [],
             avatar: !!avatar,
-            ...(base64URL && !isInDev ? { media: { url: base64URL } } : {}),
+            ...(imageURL ? { media: { url: imageURL } } : {}),
             from: {
               id: 1,
               name: username,

@@ -109,7 +109,7 @@ export class BotService implements OnModuleInit {
           }
 
           // Sending Schedule
-          if (commands.isSchedule) {
+          if (commands.isSchedule && isGroupMateOrChat) {
             await sendStateTyping();
             const weekday = body.match(/\/schedule\s+([1-5])\b/)?.[1];
             if (weekday) {
@@ -171,13 +171,17 @@ export class BotService implements OnModuleInit {
       // On the last lesson day of the week this is Monday's schedule
       const targetDay = nextSchoolDay(new Date(), SCHOOL_DAYS);
 
-      const UniGroups = [groups.UNICHAT, groups.INFORMATION];
       const lessons = await this.calendarService.getSchedule(targetDay);
-      for (const group of UniGroups) {
-        const chat = await client.getChatById(group);
-        const scheduleText = this.scheduleService.generateScheduleText(lessons, targetDay);
-        const schmsg = await chat.sendMessage(scheduleText);
-        await schmsg?.pin(86400);
+      const scheduleText = this.scheduleService.generateScheduleText(lessons, targetDay);
+      for (const group of [groups.UNICHAT, groups.INFORMATION]) {
+        // A failure in one group must not keep the schedule from the other
+        try {
+          const chat = await client.getChatById(group);
+          const schmsg = await chat.sendMessage(scheduleText);
+          await schmsg?.pin(86400);
+        } catch (error) {
+          console.error(`Failed to post the schedule to ${group}`, error);
+        }
       }
       this.logger.verbose(`Sent schedule to group at ${time}`);
     } catch (error) {

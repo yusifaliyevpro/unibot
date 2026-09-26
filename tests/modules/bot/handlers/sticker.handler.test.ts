@@ -20,10 +20,10 @@ const filesBefore = publicFiles();
 
 let quotePng: Buffer;
 
-/** Fresh modules so `isInDev` follows the stubbed environment */
-async function load({ production = false } = {}) {
+/** Fresh modules so `ENV.PUBLIC_BASE_URL` follows the stubbed environment */
+async function load({ publicUrl = false } = {}) {
   vi.resetModules();
-  if (production) vi.stubEnv("RAILWAY_ENVIRONMENT_NAME", "production");
+  if (publicUrl) vi.stubEnv("PUBLIC_BASE_URL", "https://unibot.example.com");
   const { default: client } = await import("../../../../src/modules/bot/client.ts");
   vi.spyOn(client, "sendMessage").mockResolvedValue(undefined);
   const { handleSticker } = await import("../../../../src/modules/bot/handlers/sticker.handler.ts");
@@ -116,20 +116,22 @@ describe("handleSticker", () => {
     expect(axios.post).not.toHaveBeenCalled();
   });
 
-  test("leaves the captioned image out of the quote outside production", async () => {
+  test("leaves the captioned image out of the quote without a public url", async () => {
     const { handleSticker } = await load();
     const media = new MessageMedia("image/jpeg", Buffer.from("jpeg").toString("base64"));
-    const { chat, msg } = command(fakeMessage({ type: "image", hasMedia: true, media, body: "look at this" }));
+    const quoted = fakeMessage({ type: "image", hasMedia: true, media, body: "look at this" });
+    const { chat, msg } = command(quoted);
 
     await handleSticker(msg, chat);
 
+    expect(quoted.downloadMedia).not.toHaveBeenCalled();
     expect(quotePayload().messages[0]).not.toHaveProperty("media");
     expect(quotePayload().messages[0].text).toBe("look at this");
     expect(publicFiles()).toEqual(filesBefore);
   });
 
-  test("puts the captioned image into the quote in production and cleans it up", async () => {
-    const { handleSticker } = await load({ production: true });
+  test("puts the captioned image into the quote via the public url and cleans it up", async () => {
+    const { handleSticker } = await load({ publicUrl: true });
     const media = new MessageMedia("image/jpeg", Buffer.from("jpeg-bytes").toString("base64"));
     const { chat, msg } = command(fakeMessage({ type: "image", hasMedia: true, media, body: "look at this" }));
 
@@ -143,7 +145,7 @@ describe("handleSticker", () => {
   });
 
   test("cleans up the temporary image when the sticker fails", async () => {
-    const { handleSticker } = await load({ production: true });
+    const { handleSticker } = await load({ publicUrl: true });
     vi.mocked(axios.post).mockRejectedValueOnce(new Error("sticker api down"));
     const media = new MessageMedia("image/jpeg", Buffer.from("jpeg-bytes").toString("base64"));
     const { chat, msg } = command(fakeMessage({ type: "image", hasMedia: true, media, body: "look" }));

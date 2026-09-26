@@ -16,8 +16,6 @@ export default defineConfig({
       GOOGLE_CLIENT_SECRET: "test-google-client-secret",
       GOOGLE_REDIRECT_URI: "http://localhost",
       GOOGLE_TOKEN: '{"type":"authorized_user","client_id":"id","client_secret":"secret","refresh_token":"token"}',
-      LOCALHOST_BASE_URL: "http://localhost:3000",
-      RAILWAY_BASE_URL: "https://unibot.example.com",
       STICKER_BASE_URL: "https://sticker.example.com",
       OPENROUTER_API_KEY: "test-openrouter-key",
       ADOBE_CLIENT_ID: "test-adobe-id",

@@ -357,6 +357,26 @@ describe("message routing", () => {
       expect(schedule.sendSchedule).not.toHaveBeenCalled();
     });
 
+    test.for([
+      ["a stranger in private", { from: STRANGER }],
+      ["another group", { author: MATE, chatInit: { isGroup: true, id: groups.TEST } }],
+    ] as const)("is ignored for %s", async ([, init]) => {
+      const { msg, chat } = await receive({ body: "/schedule 1", ...init });
+      expect(schedule.sendSchedule).not.toHaveBeenCalled();
+      expect(schedule.sendDaySchedule).not.toHaveBeenCalled();
+      expect(msg.reply).not.toHaveBeenCalled();
+      expect(chat.sendMessage).not.toHaveBeenCalled();
+    });
+
+    test.for([
+      ["a UniChat member in private", { from: MATE }],
+      ["the super admin in private", { from: SUPER_ADMIN }],
+      ["the information group", { author: STRANGER, chatInit: { isGroup: true, id: groups.INFORMATION } }],
+    ] as const)("works for %s", async ([, init]) => {
+      const { chat } = await receive({ body: "/schedule", ...init });
+      expect(schedule.sendSchedule).toHaveBeenCalledWith(chat, false);
+    });
+
     test("does not also make a sticker", async () => {
       await receive({ body: "/schedule", author: MATE, quoted: fakeMessage({ body: "x" }) });
       expect(handleSticker).not.toHaveBeenCalled();
@@ -511,6 +531,31 @@ describe("cron jobs", () => {
       await runCron("_2");
 
       expect(schedule.generateScheduleText.mock.calls[0][1].toLocaleDateString("sv-SE")).toBe(expected);
+    });
+
+    test.for([
+      ["pinning", "pin"],
+      ["sending", "send"],
+    ] as const)("a %s failure in UniChat does not stop the information group post", async ([, failing]) => {
+      vi.setSystemTime(new Date("2026-09-28T11:50:00+04:00"));
+      mockDay(todayWithoutLastSlot);
+      const sentTo: string[] = [];
+      vi.mocked(client.getChatById).mockImplementation(async (jid) => {
+        const chat = fakeChat({ id: jid, isGroup: true });
+        chat.sendMessage.mockImplementation(async () => {
+          if (jid === groups.UNICHAT && failing === "send") throw new Error("send failed");
+          sentTo.push(jid);
+          const sent = fakeMessage({ fromMe: true });
+          if (jid === groups.UNICHAT) sent.pin.mockRejectedValue(new Error("not an admin"));
+          return sent as Message;
+        });
+        return chat;
+      });
+
+      await runCron("_1");
+
+      expect(sentTo).toContain(groups.INFORMATION);
+      expect(console.error).toHaveBeenCalled();
     });
 
     test("skips pinning when the message was not sent", async () => {

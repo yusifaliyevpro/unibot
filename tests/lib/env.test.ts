@@ -35,6 +35,23 @@ describe("ENV", () => {
     expect(console.log).toHaveBeenCalledWith(expect.objectContaining({ [name]: expect.any(Array) }));
   });
 
+  test("PUBLIC_BASE_URL is optional", async () => {
+    const { ENV } = await loadEnv();
+    expect(ENV.PUBLIC_BASE_URL).toBeUndefined();
+  });
+
+  test("accepts an https PUBLIC_BASE_URL", async () => {
+    vi.stubEnv("PUBLIC_BASE_URL", "https://unibot.example.com");
+    const { ENV } = await loadEnv();
+    expect(ENV.PUBLIC_BASE_URL).toBe("https://unibot.example.com");
+  });
+
+  // The sticker generator only downloads images over https
+  test.for(["http://1.2.3.4:3000", "localhost:3000"])("rejects PUBLIC_BASE_URL %j", async (url) => {
+    vi.stubEnv("PUBLIC_BASE_URL", url);
+    await expect(loadEnv()).rejects.toThrow("Environment Variables");
+  });
+
   test("rejects values shorter than 3 characters after trimming", async () => {
     vi.stubEnv("STICKER_BASE_URL", "  ab  ");
     await expect(loadEnv()).rejects.toThrow("Environment Variables");
