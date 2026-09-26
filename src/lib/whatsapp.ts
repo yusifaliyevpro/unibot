@@ -30,7 +30,16 @@ import sharp from "sharp";
 // Thin whatsapp-web.js style wrapper over Baileys
 
 const logger = pino({ level: "error" });
-const STORE_LIMIT = 50;
+// In-memory caps so long uptimes don't grow RAM; least recently active chats/names are evicted first
+const STORE_LIMIT = 20;
+const MAX_CHATS = 100;
+const MAX_NAMES = 2000;
+
+function setBounded<K, V>(map: Map<K, V>, key: K, value: V, max: number) {
+  map.delete(key);
+  map.set(key, value);
+  if (map.size > max) map.delete(map.keys().next().value!);
+}
 
 export const MessageTypes = {
   TEXT: "chat",
@@ -529,11 +538,11 @@ export class Client extends EventEmitter<ClientEvents> {
       if (list.some((m) => m.key.id === waMsg.key.id)) continue;
       list.push(waMsg);
       if (list.length > STORE_LIMIT) list.shift();
-      this.messages.set(jid, list);
+      setBounded(this.messages, jid, list, MAX_CHATS);
     }
   }
 
   private setName(jids: (string | null | undefined)[], name: string) {
-    for (const jid of jids) if (jid) this.names.set(jidNormalizedUser(jid), name);
+    for (const jid of jids) if (jid) setBounded(this.names, jidNormalizedUser(jid), name, MAX_NAMES);
   }
 }
