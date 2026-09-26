@@ -23,6 +23,8 @@ export function tomorrow(day: Date) {
 export const commands = {
   isSchedule: "/schedule",
   isForTomorrow: "/tomorrow",
+  isUpper: "/upper",
+  isLower: "/lower",
   // isClear: "/clear",
   isHelp: "/help",
   // isCat: "/cat",
@@ -49,4 +51,10 @@ export const commands = {
 export function getCommand(body: string) {
   type Commands = Record<keyof typeof commands, boolean>;
   return Object.fromEntries(Object.entries(commands).map(([key, cmd]) => [key, body.includes(cmd)])) as Commands;
+}
+
+/** Copy of `day` with the time set to "HH:MM" */
+export function atTime(day: Date, time: string) {
+  const [hour, minute] = time.split(":").map(Number);
+  return new Date(new Date(day).setHours(hour, minute, 0, 0));
 }

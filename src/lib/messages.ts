@@ -29,7 +29,10 @@ export const universityHelpbox = `
 *Only our Chat Group and mates*
 
 📅 ${commands.isSchedule} - Schedule of *today*
-📅 ${commands.isSchedule} ${commands.isForTomorrow} - Schedule of *tomorrow*`;
+📅 ${commands.isSchedule} ${commands.isForTomorrow} - Schedule of *tomorrow*
+📅 ${commands.isSchedule} _[1-5]_ - Schedule of a weekday (1 = Monday, 5 = Friday)
+📅 ${commands.isSchedule} _[1-5]_ ${commands.isUpper} - Weekday schedule of the *upper* week
+📅 ${commands.isSchedule} _[1-5]_ ${commands.isLower} - Weekday schedule of the *lower* week`;
 
 export const adminHelpbox = `
 
