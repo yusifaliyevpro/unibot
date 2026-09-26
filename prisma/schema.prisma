@@ -23,11 +23,12 @@ model GameSession {
   numberOfCorrectAnswers Int     @default(0)
 }
 
-model Teacher {
-  id     String @id @default(cuid())
-  name   String
-  number String @unique
-}
+// Deprecated
+// model Teacher {
+//   id     String @id @default(cuid())
+//   name   String
+//   number String @unique
+// }
 
 // model Task {
 //   id          String   @id @default(cuid())

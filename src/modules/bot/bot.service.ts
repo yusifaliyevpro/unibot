@@ -5,13 +5,12 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Cron } from "@nestjs/schedule";
 import { getWeek } from "date-fns";
 import * as QRCode from "qrcode";
-import { groups, SuperAdminID, UniBotID } from "../../lib/constants.js";
-import { isSalam, isLion, getCommand, tomorrow } from "../../lib/utils.js";
+import { groups, SHIFT, UniBotID } from "../../lib/constants.js";
+import { isSalam, isLion, getCommand, tomorrow, atTime } from "../../lib/utils.js";
 import { type GroupChat } from "../../lib/whatsapp.ts";
 import { GoogleCalendarService } from "../calendar/calendar.service.js";
 import { GameService } from "../game/game.service.js";
 import { ScheduleService } from "../schedule/schedule.service.js";
-import { TeacherService } from "../teacher/teacher.service.js";
 import client from "./client.js";
 import { handleAIGroupMention } from "./handlers/ai.handler.js";
 import { handleHelpBox } from "./handlers/help.handler.js";
@@ -26,7 +25,6 @@ export class BotService implements OnModuleInit {
     private eventEmitter: EventEmitter2,
     private gameService: GameService,
     private scheduleService: ScheduleService,
-    private teacherService: TeacherService,
     private calendarService: GoogleCalendarService,
   ) {}
 
@@ -37,40 +35,30 @@ export class BotService implements OnModuleInit {
     client.on("auth_failure", () => {
       console.error("AUTHENTICATION FAILURE");
     });
-    client.on("loading_screen", (percent) => {
-      this.logger.log(`Loading... ${percent}`);
-    });
-
     client.on("ready", async () => {
       await client.sendPresenceAvailable();
-      await client.setAutoDownloadDocuments(false);
-      await client.setAutoDownloadPhotos(false);
-      await client.setAutoDownloadAudio(false);
-      await client.setAutoDownloadVideos(false);
 
       this.logger.log("🟢 You're connected successfully!");
       // NOTE: DELETE THIS PART, If you just forked the repo and want to test it.
       const uniChat = (await client.getChatById(groups.UNICHAT)) as GroupChat;
       const uniMates = uniChat.participants.map((participant) => participant.id._serialized);
-      await this.teacherService.notifySuperAdminAboutMessages();
+      const uniBotId = await client.getLid(UniBotID);
       // till here
 
+      // "ready" fires again after a re-login, avoid duplicate handlers
+      client.removeAllListeners("message");
       client.on("message", async (msg) => {
         try {
           const body = msg.body.trim().toLowerCase();
           const isGroupMateOrChat = [...uniMates, groups.UNICHAT, groups.INFORMATION, groups.FINAL_EXAM].includes(msg.from);
           const commands = getCommand(body);
           const chat = await msg.getChat();
-          const isTeacher = await this.teacherService.isTeacher(msg.from);
           const quotedMessage = msg.hasQuotedMsg ? await msg.getQuotedMessage() : null;
-          const isUniBotMentioned = [...msg.mentionedIds, quotedMessage?.author].some((mention) => mention === UniBotID);
+          const isUniBotMentioned = [...msg.mentionedIds, quotedMessage?.author].some((mention) => mention === uniBotId);
           const isAdmin = chat.isGroup && (chat as GroupChat).participants.some((p) => p.isAdmin && p.id._serialized === msg.author);
 
           // Utils
           const sendStateTyping = async () => await chat.sendStateTyping();
-
-          // Send read receipt
-          await chat.sendSeen();
 
           // If have an active Game session
           if (await this.gameService.hasActiveSession(msg.from)) {
@@ -85,26 +73,6 @@ export class BotService implements OnModuleInit {
             await sendStateTyping();
             if (chat.isGroup && !isAdmin) return await msg.reply("Sadəcə qrup Adminləri oyun başlada bilər!");
             await this.gameService.handleGameStart(msg, chat);
-          }
-
-          // Teacher Registration
-          if (!chat.isGroup && commands.isRegister && !body.includes("@quote")) {
-            await sendStateTyping();
-            await this.teacherService.createTeacher(msg);
-            return;
-          }
-
-          // Forward message to Teacher
-          if (commands.isForwardToTeacher && chat.isGroup && msg.author === SuperAdminID && msg.hasQuotedMsg) {
-            await this.teacherService.forwardMessageToTeacherFromChat(msg);
-          }
-
-          // Teacher Chat
-          if (isTeacher) {
-            if (commands.isRegister) {
-              return await msg.reply("You already signed up! Just write your messages or send media to forward the *6324E* Group");
-            }
-            return await this.teacherService.forwardTeacherMessageTo(chat, SuperAdminID, msg);
           }
 
           // Send AI response
@@ -144,7 +112,11 @@ export class BotService implements OnModuleInit {
           // Sending Schedule
           if (commands.isSchedule) {
             await sendStateTyping();
-            await this.scheduleService.sendSchedule(chat, commands.isForTomorrow);
+            const weekday = body.match(/\/schedule\s+([1-5])\b/)?.[1];
+            if (weekday) {
+              const week = commands.isUpper ? "upper" : commands.isLower ? "lower" : undefined;
+              await this.scheduleService.sendDaySchedule(chat, Number(weekday), week);
+            } else await this.scheduleService.sendSchedule(chat, commands.isForTomorrow);
           }
 
           // Send Sticker
@@ -159,14 +131,6 @@ export class BotService implements OnModuleInit {
             if (!msg.hasQuotedMsg) return await msg.reply("You must send it as reply to a document");
             const quotedmsg = await msg.getQuotedMessage();
             await handleConvertToPDF(quotedmsg, msg);
-          }
-
-          // Clear Messages
-          if (commands.isClear && msg.from === SuperAdminID) {
-            await sendStateTyping();
-            await chat.sendMessage("Clearing all messages...");
-            await this.clearAllMessages();
-            await chat.sendMessage("All messages cleared successfully!");
           }
 
           // Echo Message
@@ -192,49 +156,18 @@ export class BotService implements OnModuleInit {
     await client.initialize().then(() => this.logger.log("🟢 Whatsapp web is initialized successfully!"));
   }
 
-  async clearAllMessages() {
-    try {
-      const chats = await client.getChats();
-      this.logger.log(`🧹 Starting to clear messages in ${chats.length} chats...`);
-      for (const chat of chats) {
-        try {
-          if (!(await this.teacherService.isTeacher(chat.id._serialized))) {
-            await chat.clearMessages();
-            this.logger.log(`🧹 Cleared messages in chat: ${chat.name || chat.id._serialized}`);
-          }
-        } catch (error) {
-          this.logger.error(`❌ Failed to clear messages in chat: ${chat.id._serialized}`, error);
-        }
-      }
-
-      this.logger.log(`✅ All chats cleared successfully`);
-    } catch (error) {
-      this.logger.error("❌ An error occurred while clearing all chats", error);
-    }
-  }
-
-  private async sendDailySchedule(time: "16:20" | "17:50") {
+  private async sendDailySchedule(time: "beforeLastSlot" | "afterLastSlot") {
     try {
       const now = new Date();
       const todayEvents = await this.calendarService.getSchedule(now);
+      const hasLastSlotLesson = todayEvents.some((event) => {
+        const startTime = new Date(event.start?.dateTime || event.start?.date || "");
+        return startTime >= atTime(now, SHIFT.lastSlotStart) && startTime < atTime(now, SHIFT.end);
+      });
 
-      if (time === "16:20") {
-        const hasLessonAfter1625 = todayEvents.some((event) => {
-          const startTime = new Date(event.start?.dateTime || event.start?.date || "");
-          return startTime > new Date(now.setHours(16, 25, 0, 0));
-        });
-
-        if (hasLessonAfter1625) return;
-      }
-
-      if (time === "17:50") {
-        const hasLessonBefore1750 = todayEvents.some((event) => {
-          const startTime = new Date(event.start?.dateTime || event.start?.date || "");
-          return startTime > new Date(now.setHours(16, 25, 0, 0)) && startTime < new Date(now.setHours(17, 55, 0, 0));
-        });
-
-        if (!hasLessonBefore1750) return;
-      }
+      // Post right after the day's last lesson
+      if (time === "beforeLastSlot" && hasLastSlotLesson) return;
+      if (time === "afterLastSlot" && !hasLastSlotLesson) return;
 
       let targetDay = tomorrow(new Date());
       // If it's Thursday, set target day to next Monday
@@ -256,15 +189,16 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  @Cron("20 16 * * 1-4") private async _1() {
-    await this.sendDailySchedule("16:20");
+  @Cron(SHIFT.scheduleCrons.beforeLastSlot) private async _1() {
+    await this.sendDailySchedule("beforeLastSlot");
   }
 
-  @Cron("50 17 * * 1-4") private async _2() {
-    await this.sendDailySchedule("17:50");
+  @Cron(SHIFT.scheduleCrons.afterLastSlot) private async _2() {
+    await this.sendDailySchedule("afterLastSlot");
   }
 
-  private async sendDoorNumber(hour: number, minute: number) {
+  private async sendDoorNumber(lesson: string) {
+    const [hour, minute] = lesson.split(":").map(Number);
     try {
       const nextLessonText = await this.calendarService.getNextLesson(hour, minute);
       console.log(nextLessonText);
@@ -275,13 +209,13 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  @Cron("20 13 * * 1-4") private async _3() {
-    await this.sendDoorNumber(13, 35);
+  @Cron(SHIFT.doorReminders[0].cron) private async _3() {
+    await this.sendDoorNumber(SHIFT.doorReminders[0].lesson);
   }
-  @Cron("50 14 * * 1-4") private async _4() {
-    await this.sendDoorNumber(14, 55);
+  @Cron(SHIFT.doorReminders[1].cron) private async _4() {
+    await this.sendDoorNumber(SHIFT.doorReminders[1].lesson);
   }
-  @Cron("20 16 * * 1-4") private async _5() {
-    await this.sendDoorNumber(16, 25);
+  @Cron(SHIFT.doorReminders[2].cron) private async _5() {
+    await this.sendDoorNumber(SHIFT.doorReminders[2].lesson);
   }
 }

@@ -1,6 +1,8 @@
 import { type calendar_v3, auth, calendar } from "@googleapis/calendar";
 import { Injectable } from "@nestjs/common";
 import * as dotenv from "dotenv";
+import { SHIFT } from "../../lib/constants.js";
+import { atTime } from "../../lib/utils.js";
 
 dotenv.config({ path: ".env", quiet: true });
 
@@ -26,8 +28,8 @@ export class GoogleCalendarService {
   }
 
   async getSchedule(day: Date) {
-    const startOfDay = new Date(day.setHours(13, 35, 0, 0));
-    const endOfDay = new Date(day.setHours(17, 55, 0, 0));
+    const startOfDay = atTime(day, SHIFT.start);
+    const endOfDay = atTime(day, SHIFT.end);
 
     const response = await this.calendar.events.list({
       calendarId: "6718afcc2fb6b3439a0846b80cb446c032144b1cb90101aee6472ce5f0997ff5@group.calendar.google.com",
@@ -59,7 +61,7 @@ export class GoogleCalendarService {
       const lessonSummary = events[0].summary;
       if (!lessonSummary) return null;
       const subject = this.getSubject(lessonSummary.split("(")[0].trim().toLowerCase());
-      const lessonName = subject ? subject.fullName : undefined;
+      const lessonName = subject ? subject.fullName : lessonSummary.split("(")[0].trim();
       const match = lessonSummary.match(/\((\w)\)/);
       const lessonType = match ? " " + match[0].trim() : "";
       let teacher = "";

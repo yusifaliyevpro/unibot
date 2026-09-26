@@ -34,7 +34,7 @@ export async function handleAIGroupMention(msg: Message, chat: GroupChat, isGrou
     }
 
     const { text } = await generateText({
-      model: openrouter("deepseek/deepseek-chat-v3.1"),
+      model: openrouter.chat("deepseek/deepseek-v4-flash"),
       messages: [...last5MessagesArray, { role: "user", content: prompt }],
       system: AI_SYSTEM_PROMPT(chat.name, isGroupMateOrChat),
     });
@@ -99,6 +99,9 @@ const groupMateCommands = `
 - /add @[shorten] — Adding task (admins only)
 - /schedule — Today's schedule
 - /schedule /tomorrow — Tomorrow's schedule
+- /schedule [1-5] — Schedule of a weekday (1 = Monday), both upper and lower weeks
+- /schedule [1-5] /upper — Weekday schedule of the upper week
+- /schedule [1-5] /lower — Weekday schedule of the lower week
 - /tasks — Today's tasks
 - /tasks /tomorrow — Tomorrow's tasks
 `;

@@ -208,7 +208,7 @@ export class GameService {
   private async verifyAnswerByAI(answer: string, considered: string | null, userAnswer: string) {
     try {
       const { output } = await generateText({
-        model: openrouter("deepseek/deepseek-chat-v3.1"),
+        model: openrouter.chat("deepseek/deepseek-v4-flash"),
         output: Output.object({ schema: answerVerificationSchema }),
         prompt: `Sən çox dəqiq çalışan yoxlayıcı bir oyun süni intellektisən.
 İstifadəçinin cavabının düzgün olub-olmadığını aşağıdakı "doğru cavab"a əsaslanaraq qiymətləndir.
