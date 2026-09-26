@@ -30,6 +30,23 @@ import sharp from "sharp";
 // Thin whatsapp-web.js style wrapper over Baileys
 
 const logger = pino({ level: "error" });
+
+// libsignal logs routine session rotation via console (including private keys), drop those lines
+const LIBSIGNAL_NOISE = [
+  "Closing session",
+  "Opening session",
+  "Removing old closed session",
+  "Session already",
+  "Closing open session",
+  "Migrating session",
+];
+for (const method of ["info", "warn"] as const) {
+  const original = console[method].bind(console);
+  console[method] = (...args: unknown[]) => {
+    if (typeof args[0] === "string" && LIBSIGNAL_NOISE.some((noise) => (args[0] as string).startsWith(noise))) return;
+    original(...args);
+  };
+}
 // In-memory caps so long uptimes don't grow RAM; least recently active chats/names are evicted first
 const STORE_LIMIT = 20;
 const MAX_CHATS = 100;
