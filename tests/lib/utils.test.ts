@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { atTime, commands, getCommand, isLion, isSalam, nextSchoolDay, tomorrow } from "../../src/lib/utils.ts";
+import { atTime, cleanPrompt, commands, getCommand, isLion, isSalam, nextSchoolDay, tomorrow } from "../../src/lib/utils.ts";
 
 describe("isSalam", () => {
   test.for(["salam", "Salam!", "hi", "HI there", "hello, world", "salam.", "hey hii", "welcome?", "salams", "salam😊", "ok salam"])(
@@ -32,6 +32,22 @@ describe("tomorrow", () => {
   test("rolls over month and year ends", () => {
     expect(tomorrow(new Date(2026, 8, 30))).toEqual(new Date(2026, 9, 1));
     expect(tomorrow(new Date(2026, 11, 31))).toEqual(new Date(2027, 0, 1));
+  });
+});
+
+describe("cleanPrompt", () => {
+  test.for([
+    ["@994500000001 what is a monad?", "what is a monad?"],
+    ["  @994500000001  hi  @100000000000001 ", "hi"],
+    ["/unibot next monday's schedule", "next monday's schedule"],
+    ["/UniBot  tomorrow?", "tomorrow?"],
+    ["hey /unibot", "hey"],
+    ["/unibot", ""],
+    ["@994500000001", ""],
+    ["see /unibotics and x/unibot", "see /unibotics and x/unibot"],
+    ["call 12345678 now", "call 12345678 now"],
+  ])("%j becomes %j", ([text, expected]) => {
+    expect(cleanPrompt(text)).toBe(expected);
   });
 });
 
@@ -95,6 +111,7 @@ describe("getCommand", () => {
     ["/quit", ["isQuit"]],
     ["/echo hello", ["isEcho"]],
     ["/confirm", ["isConfirm"]],
+    ["/unibot what is tomorrow", ["isUniBot"]],
     ["✅", ["isRight"]],
     ["düzdür ✅", ["isRight"]],
     ["please /help!", ["isHelp"]],

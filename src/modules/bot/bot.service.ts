@@ -3,8 +3,8 @@ import type { OnModuleInit } from "@nestjs/common";
 import { Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import * as QRCode from "qrcode";
-import { groups, SCHOOL_DAYS, SHIFT, UniBotID } from "../../lib/constants.js";
-import { isSalam, isLion, getCommand, atTime, nextSchoolDay } from "../../lib/utils.js";
+import { groups, SCHOOL_DAYS, SHIFT, SuperAdminID, UniBotID } from "../../lib/constants.js";
+import { isSalam, isLion, getCommand, atTime, nextSchoolDay, cleanPrompt } from "../../lib/utils.js";
 import { type GroupChat } from "../../lib/whatsapp.ts";
 import { GoogleCalendarService } from "../calendar/calendar.service.js";
 import { GameService } from "../game/game.service.js";
@@ -40,6 +40,7 @@ export class BotService implements OnModuleInit {
       const uniChat = (await client.getChatById(groups.UNICHAT)) as GroupChat;
       const uniMates = uniChat.participants.map((participant) => participant.id._serialized);
       const uniBotId = await client.getLid(UniBotID);
+      const superAdminId = await client.getLid(SuperAdminID);
       // till here
 
       // "ready" fires again after a re-login, avoid duplicate handlers
@@ -47,7 +48,7 @@ export class BotService implements OnModuleInit {
       client.on("message", async (msg) => {
         try {
           const body = msg.body.trim().toLowerCase();
-          const isGroupMateOrChat = [...uniMates, groups.UNICHAT, groups.INFORMATION, groups.FINAL_EXAM].includes(msg.from);
+          const isGroupMateOrChat = [...uniMates, superAdminId, groups.UNICHAT, groups.INFORMATION, groups.FINAL_EXAM].includes(msg.from);
           const commands = getCommand(body);
           const chat = await msg.getChat();
           const quotedMessage = msg.hasQuotedMsg ? await msg.getQuotedMessage() : null;
@@ -72,13 +73,14 @@ export class BotService implements OnModuleInit {
             await this.gameService.handleGameStart(msg, chat);
           }
 
-          // Send AI response
-          if (isUniBotMentioned && chat.isGroup) {
-            if (msg.body.replace(/@\d{9,15}/g, "").trim() === "") {
+          // Send AI response (the super admin can also talk to it in private with /unibot)
+          const isSuperAdminUniBotCall = !chat.isGroup && commands.isUniBot && msg.from === superAdminId;
+          if ((isUniBotMentioned && chat.isGroup) || isSuperAdminUniBotCall) {
+            if (cleanPrompt(msg.body) === "") {
               if (msg.hasQuotedMsg) msg = await msg.getQuotedMessage();
               else return;
             }
-            return await handleAIGroupMention(msg, chat as GroupChat, isGroupMateOrChat, 1);
+            return await handleAIGroupMention(msg, chat, isGroupMateOrChat, this.scheduleService);
           }
 
           // Send Group msg.from

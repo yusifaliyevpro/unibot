@@ -25,6 +25,8 @@ const BOT_LID = "900000000000001@lid";
 const MATE = "100000000000001@lid";
 const ADMIN = "300000000000003@lid";
 const STRANGER = "700000000000007@lid";
+// Not a UniChat member, but still a group mate
+const SUPER_ADMIN = "200000000000002@lid";
 
 const uniChat = fakeChat({
   isGroup: true,
@@ -76,7 +78,9 @@ beforeEach(() => {
   vi.spyOn(client, "initialize").mockResolvedValue(undefined);
   vi.spyOn(client, "sendPresenceAvailable").mockResolvedValue(undefined);
   vi.spyOn(client, "sendMessage").mockResolvedValue(undefined);
-  vi.spyOn(client, "getLid").mockImplementation(async (jid) => (jid === "994500000001@s.whatsapp.net" ? BOT_LID : jid));
+  vi.spyOn(client, "getLid").mockImplementation(
+    async (jid) => ({ "994500000001@s.whatsapp.net": BOT_LID, "994500000002@s.whatsapp.net": SUPER_ADMIN })[jid] ?? jid,
+  );
   vi.spyOn(client, "getChatById").mockImplementation(async (jid) =>
     jid === groups.UNICHAT ? uniChat : fakeChat({ id: jid, isGroup: jid.endsWith("@g.us") }),
   );
@@ -215,13 +219,13 @@ describe("message routing", () => {
   describe("AI mentions", () => {
     test("mentioning the bot in a group asks the AI", async () => {
       const { msg } = await receive({ body: "@900000000000001 what's up?", author: MATE, mentionedIds: [BOT_LID] });
-      expect(handleAIGroupMention).toHaveBeenCalledWith(msg, uniChat, true, 1);
+      expect(handleAIGroupMention).toHaveBeenCalledWith(msg, uniChat, true, schedule);
     });
 
     test("replying to the bot in a group asks the AI", async () => {
       const botMessage = fakeMessage({ body: "earlier answer", author: BOT_LID, fromMe: true });
       const { msg } = await receive({ body: "and why?", author: MATE, quoted: botMessage });
-      expect(handleAIGroupMention).toHaveBeenCalledWith(msg, uniChat, true, 1);
+      expect(handleAIGroupMention).toHaveBeenCalledWith(msg, uniChat, true, schedule);
     });
 
     test("a bare mention in reply asks about the replied message", async () => {
@@ -245,10 +249,49 @@ describe("message routing", () => {
       expect(handleAIGroupMention).not.toHaveBeenCalled();
     });
 
+    test("/unibot in a group needs a mention like any message", async () => {
+      await receive({ body: "/unibot hi", author: SUPER_ADMIN });
+      expect(handleAIGroupMention).not.toHaveBeenCalled();
+    });
+
     test("a mention is answered by the AI only, not by other commands", async () => {
       await receive({ body: "@900000000000001 /help", author: MATE, mentionedIds: [BOT_LID] });
       expect(handleAIGroupMention).toHaveBeenCalledOnce();
       expect(handleHelpBox).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("/unibot in private", () => {
+    test("the super admin can talk to the AI as a group mate", async () => {
+      const { msg, chat } = await receive({ body: "/unibot send me next monday's schedule", from: SUPER_ADMIN });
+      expect(handleAIGroupMention).toHaveBeenCalledExactlyOnceWith(msg, chat, true, schedule);
+    });
+
+    test("a bare /unibot asks about the replied message", async () => {
+      const question = fakeMessage({ body: "When is the exam?", from: SUPER_ADMIN });
+      await receive({ body: "/unibot", from: SUPER_ADMIN, quoted: question });
+      expect(vi.mocked(handleAIGroupMention).mock.calls[0][0]).toBe(question);
+    });
+
+    test("a bare /unibot alone is ignored", async () => {
+      await receive({ body: " /unibot ", from: SUPER_ADMIN });
+      expect(handleAIGroupMention).not.toHaveBeenCalled();
+    });
+
+    test("other people cannot use it", async () => {
+      const { msg } = await receive({ body: "/unibot hi", from: MATE });
+      expect(handleAIGroupMention).not.toHaveBeenCalled();
+      expect(msg.reply).not.toHaveBeenCalled();
+    });
+
+    test("the super admin's other messages are handled normally", async () => {
+      await receive({ body: "what's up", from: SUPER_ADMIN });
+      expect(handleAIGroupMention).not.toHaveBeenCalled();
+    });
+
+    test("the super admin counts as a group mate", async () => {
+      await receive({ body: "/help", from: SUPER_ADMIN });
+      expect(vi.mocked(handleHelpBox).mock.calls[0][2]).toBe(true);
     });
   });
 

@@ -36,6 +36,7 @@ export const commands = {
   // isQR: "/qr",
   isSticker: "/s",
   isConfirm: "/confirm",
+  isUniBot: "/unibot",
   // isRegister: "/reg",
   isRight: "✅",
   // isForwardToTeacher: "/fw",
@@ -53,6 +54,14 @@ function hasCommand(body: string, cmd: string) {
 export function getCommand(body: string) {
   type Commands = Record<keyof typeof commands, boolean>;
   return Object.fromEntries(Object.entries(commands).map(([key, cmd]) => [key, hasCommand(body, cmd)])) as Commands;
+}
+
+/** Message text addressed to the bot, without @mentions and the /unibot command */
+export function cleanPrompt(text: string) {
+  return text
+    .replace(/@\d{9,15}/g, "")
+    .replace(/(^|\s)\/unibot(?=\s|$)/gi, " ")
+    .trim();
 }
 
 /** The first lesson day after `day`, i.e. Monday after the week's last one */

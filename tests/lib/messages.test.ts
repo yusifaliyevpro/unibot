@@ -23,6 +23,7 @@ describe("help boxes", () => {
   test("admin help lists the admin commands", () => {
     expect(adminHelpbox).toContain("/confirm");
     expect(adminHelpbox).toContain("/echo");
+    expect(adminHelpbox).toContain("/unibot");
   });
 
   test("appended sections start on their own paragraph", () => {

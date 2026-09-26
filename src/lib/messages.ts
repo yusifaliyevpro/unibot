@@ -39,4 +39,5 @@ export const adminHelpbox = `
 *🔐 Bot Admin only*
 
 🆔 ${commands.isConfirm} - Get the chat ID (for .env group IDs)
-🗣 ${commands.isEcho} _[text]_ - Send the text as UniBot`;
+🗣 ${commands.isEcho} _[text]_ - Send the text as UniBot
+🤖 ${commands.isUniBot} _[message]_ - Talk to UniBot AI in private (e.g. schedule requests)`;
