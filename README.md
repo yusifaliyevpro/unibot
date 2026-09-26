@@ -54,22 +54,20 @@ On first run, a QR code will appear in the terminal — scan it with WhatsApp to
 
 To keep the bot running continuously, you need a server. The project includes a Dockerfile for easy deployment.
 
-Since the project directory is wiped on every deploy, **do not place your `.env` inside the project folder**. Store it separately on the server:
+Clone the repo to `~/unibot` once and put your `.env` inside it. Deploys only sync the repo, so the `.env` stays (it's git and docker ignored).
 
 ```bash
-mkdir -p ~/unibot-env
-cp .env ~/unibot-env/.env
+git clone https://github.com/your-username/your-repo.git ~/unibot
+cp .env ~/unibot/.env
 ```
+
+The `.env` is passed to Docker with `--env-file`, so write values **without quotes** and keep `GOOGLE_TOKEN` JSON on a single line.
 
 ### Deployment
 
 Build and run the deployment. You can use your own scripts or the provided `deploy.sh`.
 
-1. Update `REPO_SSH` at the top of `deploy.sh` to point to your repository:
-
-```bash
-REPO_SSH="git@github.com:your-username/your-repo.git"
-```
+1. If needed, update `APP_DIR` / `BRANCH` at the top of `cmd/deploy.sh`. It syncs the repo with `origin/main` (local changes are discarded) and removes the old WhatsApp session.
 
 2. Grant execution permissions for the first-time run:
 
