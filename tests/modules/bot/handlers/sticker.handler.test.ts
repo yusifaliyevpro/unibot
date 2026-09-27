@@ -1,4 +1,3 @@
-import { readdirSync } from "node:fs";
 import { Logger } from "@nestjs/common";
 import axios from "axios";
 import sharp from "sharp";
@@ -15,15 +14,10 @@ const STICKER_OPTIONS = {
   stickerCategories: ["whatsapp message bubble", "message", "bubble"],
 };
 
-const publicFiles = () => readdirSync("public").toSorted();
-const filesBefore = publicFiles();
-
 let quotePng: Buffer;
 
-/** Fresh modules so `ENV.PUBLIC_BASE_URL` follows the stubbed environment */
-async function load({ publicUrl = false } = {}) {
+async function load() {
   vi.resetModules();
-  if (publicUrl) vi.stubEnv("PUBLIC_BASE_URL", "https://unibot.example.com");
   const { default: client } = await import("../../../../src/modules/bot/client.ts");
   vi.spyOn(client, "sendMessage").mockResolvedValue(undefined);
   const { handleSticker } = await import("../../../../src/modules/bot/handlers/sticker.handler.ts");
@@ -48,6 +42,23 @@ function command(quoted: FakeMessage) {
 }
 
 const quotePayload = () => vi.mocked(axios.post).mock.calls[0][1] as { messages: Record<string, unknown>[] };
+
+const jpeg = async (width: number, height: number) =>
+  new MessageMedia(
+    "image/jpeg",
+    (
+      await sharp({ create: { width, height, channels: 3, background: "#3366ff" } })
+        .jpeg()
+        .toBuffer()
+    ).toString("base64"),
+  );
+
+/** The image the quote payload carries inline, decoded */
+async function quotedImage() {
+  const { url } = quotePayload().messages[0].media as { url: string };
+  expect(url).toMatch(/^data:image\/jpeg;base64,/);
+  return await sharp(Buffer.from(url.slice(url.indexOf(",") + 1), "base64")).metadata();
+}
 
 describe("handleSticker", () => {
   test("turns a quoted text into a quote sticker", async () => {
@@ -116,44 +127,35 @@ describe("handleSticker", () => {
     expect(axios.post).not.toHaveBeenCalled();
   });
 
-  test("leaves the captioned image out of the quote without a public url", async () => {
+  test("puts a captioned image into the quote inline, shrunk to 1024px", async () => {
     const { handleSticker } = await load();
-    const media = new MessageMedia("image/jpeg", Buffer.from("jpeg").toString("base64"));
-    const quoted = fakeMessage({ type: "image", hasMedia: true, media, body: "look at this" });
-    const { chat, msg } = command(quoted);
+    const { chat, msg } = command(fakeMessage({ type: "image", hasMedia: true, media: await jpeg(3000, 2000), body: "look at this" }));
 
     await handleSticker(msg, chat);
 
-    expect(quoted.downloadMedia).not.toHaveBeenCalled();
-    expect(quotePayload().messages[0]).not.toHaveProperty("media");
+    expect(await quotedImage()).toMatchObject({ format: "jpeg", width: 1024, height: 683 });
     expect(quotePayload().messages[0].text).toBe("look at this");
-    expect(publicFiles()).toEqual(filesBefore);
+    expect(chat.sendMessage).toHaveBeenCalledOnce();
   });
 
-  test("puts the captioned image into the quote via the public url and cleans it up", async () => {
-    const { handleSticker } = await load({ publicUrl: true });
-    const media = new MessageMedia("image/jpeg", Buffer.from("jpeg-bytes").toString("base64"));
-    const { chat, msg } = command(fakeMessage({ type: "image", hasMedia: true, media, body: "look at this" }));
+  test("keeps small images at their size", async () => {
+    const { handleSticker } = await load();
+    const { chat, msg } = command(fakeMessage({ type: "image", hasMedia: true, media: await jpeg(400, 300), body: "small" }));
 
     await handleSticker(msg, chat);
 
-    expect(quotePayload().messages[0].media).toEqual({
-      url: expect.stringMatching(/^https:\/\/unibot\.example\.com\/public\/image_\d+\.png$/),
-    });
-    expect(chat.sendMessage).toHaveBeenCalledOnce();
-    expect(publicFiles()).toEqual(filesBefore);
+    expect(await quotedImage()).toMatchObject({ width: 400, height: 300 });
   });
 
-  test("cleans up the temporary image when the sticker fails", async () => {
-    const { handleSticker } = await load({ publicUrl: true });
-    vi.mocked(axios.post).mockRejectedValueOnce(new Error("sticker api down"));
-    const media = new MessageMedia("image/jpeg", Buffer.from("jpeg-bytes").toString("base64"));
+  test("reports an image it cannot read", async () => {
+    const { handleSticker } = await load();
+    const media = new MessageMedia("image/jpeg", Buffer.from("not an image").toString("base64"));
     const { chat, msg } = command(fakeMessage({ type: "image", hasMedia: true, media, body: "look" }));
 
     await handleSticker(msg, chat);
 
     expect(msg.react).toHaveBeenCalledWith("❌");
-    expect(publicFiles()).toEqual(filesBefore);
+    expect(axios.post).not.toHaveBeenCalled();
   });
 
   test.for(["video", "document", "sticker", "audio", "ptt"] as MessageTypes[])("refuses a quoted %s", async (type) => {

@@ -37,7 +37,6 @@ WhatsApp bot for a university class group (AzTU): schedules, lesson reminders, A
 - **Time zone:** everything assumes `TZ=Asia/Baku` (validated in `src/lib/env.ts`).
 - **Deploy:** `cmd/deploy.sh` syncs `~/unibot` with `origin/main` and rebuilds the Docker image. The server `.env` must be in Docker `--env-file` format (no quotes, single-line JSON).
   - `.baileys_auth` only exists inside the container, so every deploy re-links the bot (new QR scan, new keys).
-  - `PUBLIC_BASE_URL` must be https: the sticker generator (`@neoxr/quote-api`) downloads images with `https.get`. Unset means image quotes are text only.
 - `.gitignore` uses CRLF line endings; source files use LF. Preserve them when editing.
 
 ### Decided, not issues (don't raise again)

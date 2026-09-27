@@ -1,5 +1,3 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
 import axios from "axios";
 import sharp from "sharp";
 import { ENV } from "../../../lib/env.js";
@@ -8,7 +6,6 @@ import { LogMessages, userFriendlyMessages } from "../../../lib/logger_messages.
 import { type Chat, type Message, MessageMedia, MessageTypes } from "../../../lib/whatsapp.ts";
 
 export async function handleSticker(msg: Message, chat: Chat) {
-  let tempImagePath = "";
   try {
     const quotedMsg = await msg.getQuotedMessage();
     if (quotedMsg.type === MessageTypes.IMAGE && !quotedMsg.body.trim()) {
@@ -22,16 +19,16 @@ export async function handleSticker(msg: Message, chat: Chat) {
       const username = quotedContact.pushname;
       const avatar = (await quotedContact.getProfilePicUrl()) || "";
 
+      // The image goes inline as a data URL, shrunk to stay far below Vercel's 4.5 MB request limit
       let imageURL = "";
-
-      // The sticker generator downloads the image itself, so it needs a public https url
-      if (quotedMsg.hasMedia && quotedMsg.type === MessageTypes.IMAGE && ENV.PUBLIC_BASE_URL) {
+      if (quotedMsg.hasMedia && quotedMsg.type === MessageTypes.IMAGE) {
         const image = await quotedMsg.downloadMedia();
-        const fileName = `image_${Date.now()}.png`;
-        tempImagePath = path.join("public", fileName);
-        await fs.promises.writeFile(tempImagePath, Buffer.from(image.data, "base64"));
-
-        imageURL = new URL(`/public/${fileName}`, ENV.PUBLIC_BASE_URL).href;
+        const jpeg = await sharp(Buffer.from(image.data, "base64"))
+          .rotate()
+          .resize(MAX_IMAGE_SIZE, MAX_IMAGE_SIZE, { fit: "inside", withoutEnlargement: true })
+          .jpeg({ quality: 85 })
+          .toBuffer();
+        imageURL = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
       }
 
       const json = {
@@ -91,10 +88,10 @@ export async function handleSticker(msg: Message, chat: Chat) {
     }
   } catch (error: unknown) {
     await sendErrorLog(LogMessages.STICKER_HANDLER, msg, error);
-  } finally {
-    if (tempImagePath) await fs.promises.unlink(tempImagePath).catch(() => {});
   }
 }
+
+const MAX_IMAGE_SIZE = 1024;
 
 /** The "replying to" bubble shows the author and text of the message the quoted one replied to */
 async function replyBubble(repliedTo: Message) {

@@ -11,8 +11,6 @@ const EnvSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().trim().min(3),
   GOOGLE_REDIRECT_URI: z.string().trim().min(3),
   GOOGLE_TOKEN: z.string().trim().min(3),
-  /** Public https url of this server, lets the sticker generator fetch images from /public. Unset: quotes skip images */
-  PUBLIC_BASE_URL: z.url({ protocol: /^https$/ }).optional(),
   STICKER_BASE_URL: z.string().trim().min(3),
   OPENROUTER_API_KEY: z.string().trim().min(3),
   ADOBE_CLIENT_ID: z.string().trim().min(3),
