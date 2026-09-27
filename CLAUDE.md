@@ -29,11 +29,23 @@ WhatsApp bot for a university class group (AzTU): schedules, lesson reminders, A
 ## Conventions and gotchas
 
 - **User ids are LIDs** (`…@lid`); a phone number jid (`…@s.whatsapp.net`) is only a fallback. Phone numbers from `.env` (`UNIBOT_PHONE_NUMBER`, `BOT_OWNER_PHONE_NUMBER`) must be compared via `await client.getLid(...)`. Groups are `…@g.us`.
+  - **Bot owner ≠ group owner:** `BOT_OWNER_PHONE_NUMBER` / `BotOwnerID` is the developer's own number; `/echo`, `/confirm` and private `/unibot` are for them only. A participant's `isSuperAdmin` is WhatsApp's group owner, unrelated.
 - **Only live messages are handled.** History sync is off and messages older than the connection are ignored. The in-memory message store is bounded (20 messages per chat, 100 chats).
 - **Commands:** add new ones to `commands` in `utils.ts`; retired ones are commented out there, not deleted. Keep the help boxes (`src/lib/messages.ts`) and the AI command list (`ai.handler.ts`) in sync.
+- **Game:** messages are handled concurrently, so advancing or ending a game goes through a conditional `updateMany` (first message wins). `GameService` keeps active games in memory; restart the bot after editing `GameSession` rows by hand.
+- **Prisma:** after changing `schema.prisma`, run `pnpm prisma generate` before `pnpm check` (tsc runs before the build step regenerates the client).
 - **Time zone:** everything assumes `TZ=Asia/Baku` (validated in `src/lib/env.ts`).
 - **Deploy:** `cmd/deploy.sh` syncs `~/unibot` with `origin/main` and rebuilds the Docker image. The server `.env` must be in Docker `--env-file` format (no quotes, single-line JSON).
+  - `.baileys_auth` only exists inside the container, so every deploy re-links the bot (new QR scan, new keys).
+  - `PUBLIC_BASE_URL` must be https: the sticker generator (`@neoxr/quote-api`) downloads images with `https.get`. Unset means image quotes are text only.
 - `.gitignore` uses CRLF line endings; source files use LF. Preserve them when editing.
+
+### Decided, not issues (don't raise again)
+
+- **Group caches don't go stale across reconnects.** `groupCache`/`participantsCache` in `whatsapp.ts` are cleared by `groups.update` / `group-participants.update`, and WhatsApp delivers changes missed while disconnected as queued `offline` notifications on reconnect, which Baileys turns into the same events. Don't clear them on reconnect. They're needed (Baileys' `cachedGroupMetadata` avoids a metadata query per group send) and small (one entry per active group).
+- **No `--restart` policy in `deploy.sh`:** a broken deploy would restart forever.
+- **A failing `ready` handler crashes the bot on purpose** (e.g. `getChatById(UNICHAT)`), so the failure is visible.
+- **`uniMates` is fixed at startup:** UniChat membership rarely changes and the owner restarts the bot when it does.
 
 ## Tests
 
