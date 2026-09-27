@@ -31,7 +31,7 @@ describe("handleHelpBox", () => {
     expect(msg.react).toHaveBeenCalledWith("🚀");
   });
 
-  test("adds the admin section for the super admin in private", async () => {
+  test("adds the admin section for the bot owner in private", async () => {
     const chat = fakeChat({ id: ADMIN_LID });
     await handleHelpBox(chat, fakeMessage({ body: "/help", from: ADMIN_LID, chat }), true);
     expect(chat.sendMessage).toHaveBeenCalledWith(helpBox + universityHelpbox + adminHelpbox, { linkPreview: false });
@@ -43,7 +43,7 @@ describe("handleHelpBox", () => {
     expect(chat.sendMessage).toHaveBeenCalledWith(helpBoxAZ + adminHelpbox, { linkPreview: false });
   });
 
-  test("hides the admin section in groups, even for the super admin", async () => {
+  test("hides the admin section in groups, even for the bot owner", async () => {
     const chat = fakeChat({ isGroup: true, id: groups.UNICHAT });
     await handleHelpBox(chat, fakeMessage({ body: "/help", from: groups.UNICHAT, author: ADMIN_LID, chat }), true);
     expect(chat.sendMessage).toHaveBeenCalledWith(helpBox + universityHelpbox, { linkPreview: false });

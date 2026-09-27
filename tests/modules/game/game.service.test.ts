@@ -84,7 +84,7 @@ function setup({ isGroup = false, packageIndex = 0, lastQuestion = 0, correct = 
   });
   prisma.sessions.push({
     id: "s1",
-    phoneNumber: from,
+    chatId: from,
     packageID: packageIndex === 0 ? 7 : 9,
     packageIndex,
     lastQuestion,
@@ -124,7 +124,7 @@ describe("handleGameStart", () => {
     await service.handleGameStart(msg, chat);
 
     expect(prisma.sessions).toEqual([
-      { id: "session-1", phoneNumber: PLAYER, packageID: 7, packageIndex: 0, lastQuestion: 0, isActive: true, numberOfCorrectAnswers: 0 },
+      { id: "session-1", chatId: PLAYER, packageID: 7, packageIndex: 0, lastQuestion: 0, isActive: true, numberOfCorrectAnswers: 0 },
     ]);
     expect(msg.reply).toHaveBeenCalledWith(gameMsgs.START);
     expect(chat.sendMessage.mock.calls).toEqual([
@@ -175,7 +175,7 @@ describe("handleGameStart", () => {
     const { service, prisma, chat } = setup({ isGroup: true });
     prisma.sessions.length = 0;
     await service.handleGameStart(fakeMessage({ body: "/start 7", from: groups.UNICHAT, chat }), chat);
-    expect(prisma.sessions[0].phoneNumber).toBe(groups.UNICHAT);
+    expect(prisma.sessions[0].chatId).toBe(groups.UNICHAT);
     expect(client.sendMessage).toHaveBeenCalledWith("400000000000004@lid", "1. Bakı\n2. Qırmızı\n3. Qız qalası");
   });
 
@@ -200,10 +200,40 @@ describe("handleGameStart", () => {
 
 describe("hasActiveSession", () => {
   test("is true only for chats with an active game", async () => {
-    const { service, prisma } = setup();
+    const { service } = setup();
     await expect(service.hasActiveSession(PLAYER)).resolves.toBe(true);
     await expect(service.hasActiveSession("999999999999999@lid")).resolves.toBe(false);
-    prisma.sessions[0].isActive = false;
+  });
+
+  test("queries the database only once", async () => {
+    const { service, prisma } = setup();
+    await Promise.all([service.hasActiveSession(PLAYER), service.hasActiveSession(PLAYER)]);
+    await service.hasActiveSession("999999999999999@lid");
+    expect(prisma.gameSession.findMany).toHaveBeenCalledOnce();
+  });
+
+  test("retries the query after a failure", async () => {
+    const { service, prisma } = setup();
+    prisma.gameSession.findMany.mockRejectedValueOnce(new Error("db down"));
+    await expect(service.hasActiveSession(PLAYER)).rejects.toThrow("db down");
+    await expect(service.hasActiveSession(PLAYER)).resolves.toBe(true);
+  });
+
+  test("knows about games started later", async () => {
+    const { service, prisma, chat } = setup();
+    prisma.sessions.length = 0;
+    await expect(service.hasActiveSession(PLAYER)).resolves.toBe(false);
+    await service.handleGameStart(fakeMessage({ body: "/start 7", from: PLAYER, chat }), chat);
+    await expect(service.hasActiveSession(PLAYER)).resolves.toBe(true);
+  });
+
+  test.for([
+    ["/quit", 0],
+    ["/pass", 2],
+  ] as const)("forgets a game finished with %s", async ([body, lastQuestion]) => {
+    const { service, chat, answer } = setup({ lastQuestion });
+    await expect(service.hasActiveSession(PLAYER)).resolves.toBe(true);
+    await service.handleGame(answer(body), chat, false);
     await expect(service.hasActiveSession(PLAYER)).resolves.toBe(false);
   });
 });
@@ -233,6 +263,44 @@ describe("handleGame", () => {
     expect(texts(chat)).toEqual(["2. Rəng?"].map((q) => `_*Rekvizit:*_ Bayraq\n\n${q}`));
     expect(session()).toMatchObject({ lastQuestion: 1, numberOfCorrectAnswers: 1, isActive: true });
     expect(generateText).not.toHaveBeenCalled();
+  });
+
+  test.for([
+    ["a longer word", "Bakıxanov küçəsi"],
+    ["the answer inside a longer word", "Bakının"],
+  ])("does not accept %s literally", async ([, body]) => {
+    aiSays(false);
+    const { service, chat, answer, session } = setup();
+    const msg = answer(body);
+
+    await service.handleGame(msg, chat, false);
+
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(msg.react).toHaveBeenLastCalledWith("❌");
+    expect(session().lastQuestion).toBe(0);
+  });
+
+  test("two correct answers at once move on only once", async () => {
+    const { service, chat, answer, session } = setup({ isGroup: true });
+    const first = answer("Bakı");
+    const second = answer("bakı", { author: "500000000000005@lid" });
+
+    await Promise.all([service.handleGame(first, chat, false), service.handleGame(second, chat, false)]);
+
+    expect([...first.reply.mock.calls, ...second.reply.mock.calls]).toEqual([[Q1_ANSWER, undefined, { linkPreview: false }]]);
+    expect(texts(chat)).toEqual(["_*Rekvizit:*_ Bayraq\n\n2. Rəng?"]);
+    expect(session()).toMatchObject({ lastQuestion: 1, numberOfCorrectAnswers: 1, isActive: true });
+  });
+
+  test("/pass and /quit at once end the question only once", async () => {
+    const { service, chat, answer, session } = setup({ isGroup: true });
+    const pass = answer("/pass");
+    const quit = answer("/quit");
+
+    await Promise.all([service.handleGame(pass, chat, true), service.handleGame(quit, chat, true)]);
+
+    expect([...pass.reply.mock.calls, ...quit.reply.mock.calls].filter(([text]) => text === Q1_ANSWER)).toHaveLength(1);
+    expect(session().lastQuestion).toBeLessThanOrEqual(1);
   });
 
   test("asks the AI when the answer does not match literally", async () => {

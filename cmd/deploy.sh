@@ -20,9 +20,6 @@ main() {
   # Removes untracked files, keeps ignored ones like .env
   git clean -fd
 
-  echo "🧹 Removing old WhatsApp session..."
-  rm -rf .baileys_auth
-
   echo "🐳 Building the Docker image..."
   docker build --secret id=envfile,src="$ENV_FILE" -t "$IMAGE_NAME:latest" .
 

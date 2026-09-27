@@ -20,6 +20,8 @@ const CALENDAR_ID = "6718afcc2fb6b3439a0846b80cb446c032144b1cb90101aee6472ce5f09
 const list = () => vi.mocked(calendar({ version: "v3" }).events.list as unknown as (...args: unknown[]) => Promise<unknown>);
 const respond = (items?: calendar_v3.Schema$Event[]) => list().mockResolvedValueOnce({ data: { items } });
 
+const lesson = (summary?: string): calendar_v3.Schema$Event => ({ summary, start: { dateTime: "2026-09-28T09:00:00+04:00" } });
+
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-09-28T08:45:00+04:00"));
@@ -72,8 +74,6 @@ describe("getSchedule", () => {
 });
 
 describe("getNextLesson", () => {
-  const lesson = (summary?: string): calendar_v3.Schema$Event => ({ summary, start: { dateTime: "2026-09-28T09:00:00+04:00" } });
-
   test("queries the 80 minutes lesson starting at the given time today", async () => {
     respond([]);
     await new GoogleCalendarService().getNextLesson(10, 30);

@@ -6,6 +6,7 @@ export enum LogMessages {
   MAP_HANDLER = "MAP_HANDLER",
   MENTION_GROUP_PARTICIPANTS = "MENTION_GROUP_PARTICIPANTS",
   PDF_HANDLER = "PDF_HANDLER",
+  SCHEDULE_HANDLER = "SCHEDULE_HANDLER",
   QR_CODE_HANDLER = "QR_CODE_HANDLER",
   STICKER_HANDLER = "STICKER_HANDLER",
   WIKI_HANDLER = "WIKI_HANDLER",
@@ -22,7 +23,8 @@ export enum userFriendlyMessages {
   AI_MESSAGE_FAIL = "Sorry, I couldn't process your request. Please try again later. " +
     "An error happened on server or maybe the rate limit is reached (1000 requests per day).",
   STICKER_ONLY_TEXT_AND_IMAGE = "Only text and image messages can be a sticker!",
-  NEW_TASK_FAIL = "Hmm... An error occurred. Maybe you should notify Yusif (Super Admin).",
+  SCHEDULE_FAIL = "Sorry, I couldn't get the schedule. Please try again later.",
+  NEW_TASK_FAIL = "Hmm... An error occurred. Maybe you should notify Yusif (the bot owner).",
 }
 
 export enum gameMsgs {

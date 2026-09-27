@@ -4,7 +4,7 @@ import type { GoogleCalendarService } from "../../../src/modules/calendar/calend
 import { ScheduleService } from "../../../src/modules/schedule/schedule.service.ts";
 import { fakeChat } from "../../fakes.ts";
 
-// Week parity (date-fns getWeek): Sep 28 - Oct 3 2026 is week 40 (UPPER), Oct 5 - 10 is week 41 (LOWER)
+// Even (Monday to Sunday) weeks are upper this semester: Sep 28 - Oct 4 2026 is week 40 (UPPER), Oct 5 - 11 is week 41 (LOWER)
 
 const lesson = (day: string, start: string, end: string, summary: string): calendar_v3.Schema$Event => ({
   summary,
@@ -96,15 +96,21 @@ describe("sendSchedule", () => {
     expect(sent).toBe(await chat.sendMessage.mock.results[0].value);
   });
 
-  test("swallows calendar errors", async () => {
+  test("does not log to the console", async () => {
+    at("2026-09-28T08:00:00+04:00");
+    const { service } = createService();
+    await service.sendSchedule(fakeChat(), false);
+    expect(console.log).not.toHaveBeenCalled();
+  });
+
+  test("propagates calendar errors", async () => {
     at("2026-09-28T08:00:00+04:00");
     const { service, calendar } = createService();
     calendar.getSchedule.mockRejectedValueOnce(new Error("invalid_grant"));
     const chat = fakeChat();
 
-    await expect(service.sendSchedule(chat, false)).resolves.toBeUndefined();
+    await expect(service.sendSchedule(chat, false)).rejects.toThrow("invalid_grant");
     expect(chat.sendMessage).not.toHaveBeenCalled();
-    expect(console.error).toHaveBeenCalled();
   });
 });
 
@@ -128,6 +134,13 @@ describe("generateScheduleText", () => {
     at("2026-09-28T13:20:00+04:00");
     const { service } = createService();
     expect(service.generateScheduleText([], new Date(`${day}T12:00:00+04:00`))).toBe(text);
+  });
+
+  test("a Sunday belongs to the week that started on Monday", () => {
+    at("2026-10-02T12:00:00+04:00");
+    const { service } = createService();
+    const text = service.generateScheduleText([lesson("2026-10-04", "09:00", "10:20", "DS (L)")], new Date("2026-10-04T00:00:00+04:00"));
+    expect(text.split("\n")[0]).toBe("*Sunday* (*UPPER*)");
   });
 
   test("shows all-day events without times", () => {
@@ -234,12 +247,12 @@ describe("sendDaySchedule", () => {
     expect(sentTexts(chat)).toEqual([`*${name}*\n\nYou are free😊`]);
   });
 
-  test("swallows calendar errors", async () => {
+  test("propagates calendar errors", async () => {
     at("2026-09-26T12:00:00+04:00");
     const { service, calendar } = createService();
     calendar.getSchedule.mockRejectedValue(new Error("network"));
     const chat = fakeChat();
-    await expect(service.sendDaySchedule(chat, 1)).resolves.toBeUndefined();
+    await expect(service.sendDaySchedule(chat, 1)).rejects.toThrow("network");
     expect(chat.sendMessage).not.toHaveBeenCalled();
   });
 });

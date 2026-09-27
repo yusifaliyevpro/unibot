@@ -43,13 +43,16 @@ export async function handleAIGroupMention(
       });
     }
 
+    // The SDK turns tool errors into results, so they are caught here instead
+    let toolError: unknown;
     const { text, toolResults } = await generateText({
       model: openrouter.chat("deepseek/deepseek-v4-flash"),
       messages: [...last5MessagesArray, { role: "user", content: prompt }],
       system: AI_SYSTEM_PROMPT(chat.name, isGroupMateOrChat),
       // Schedule commands are only for our class groups, like the commands themselves
-      tools: isGroupMateOrChat ? scheduleTools(chat, scheduleService) : undefined,
+      tools: isGroupMateOrChat ? scheduleTools(chat, scheduleService, (error) => (toolError = error)) : undefined,
     });
+    if (toolError) throw toolError;
 
     // A tool already sent the result to the chat, any text alongside it is dropped
     if (toolResults.length) {
@@ -67,34 +70,38 @@ export async function handleAIGroupMention(
 
     await sendLog(LogMessages.AI_MESSAGE, msg);
   } catch (error: unknown) {
-    await sendErrorLog(LogMessages.AI_MESSAGE, msg, error);
-    await msg.reply(userFriendlyMessages.AI_MESSAGE_FAIL);
+    await Promise.allSettled([msg.reply(userFriendlyMessages.AI_MESSAGE_FAIL), sendErrorLog(LogMessages.AI_MESSAGE, msg, error)]);
   }
 }
 
 /** Same actions as the /schedule commands, they send the schedule to the chat themselves */
-const scheduleTools = (chat: Chat, scheduleService: ScheduleService) => ({
-  sendSchedule: tool({
-    description: "Sends today's or tomorrow's class schedule to the chat.",
-    inputSchema: z.object({ day: z.enum(["today", "tomorrow"]) }),
-    execute: async ({ day }) => {
-      await scheduleService.sendSchedule(chat, day === "tomorrow");
+const scheduleTools = (chat: Chat, scheduleService: ScheduleService, onError: (error: unknown) => void) => {
+  const run = async (action: () => Promise<unknown>) => {
+    try {
+      await action();
       return "sent";
-    },
-  }),
-  sendWeekdaySchedule: tool({
-    description:
-      "Sends the class schedule of a weekday (its next occurrence) to the chat. Without a week, both upper and lower week schedules are sent.",
-    inputSchema: z.object({
-      weekday: z.number().int().min(1).max(5).describe("1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday"),
-      week: z.enum(["upper", "lower"]).optional().describe("Only when the user explicitly asks for the upper or lower week"),
+    } catch (error) {
+      onError(error);
+      throw error;
+    }
+  };
+  return {
+    sendSchedule: tool({
+      description: "Sends today's or tomorrow's class schedule to the chat.",
+      inputSchema: z.object({ day: z.enum(["today", "tomorrow"]) }),
+      execute: async ({ day }) => await run(() => scheduleService.sendSchedule(chat, day === "tomorrow")),
     }),
-    execute: async ({ weekday, week }) => {
-      await scheduleService.sendDaySchedule(chat, weekday, week);
-      return "sent";
-    },
-  }),
-});
+    sendWeekdaySchedule: tool({
+      description:
+        "Sends the class schedule of a weekday (its next occurrence) to the chat. Without a week, both upper and lower week schedules are sent.",
+      inputSchema: z.object({
+        weekday: z.number().int().min(1).max(5).describe("1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday"),
+        week: z.enum(["upper", "lower"]).optional().describe("Only when the user explicitly asks for the upper or lower week"),
+      }),
+      execute: async ({ weekday, week }) => await run(() => scheduleService.sendDaySchedule(chat, weekday, week)),
+    }),
+  };
+};
 
 const scheduleToolsPrompt = () => `
 Today is ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.

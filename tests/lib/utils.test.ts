@@ -1,5 +1,17 @@
 import { describe, expect, test } from "vitest";
-import { atTime, cleanPrompt, commands, getCommand, isLion, isSalam, nextSchoolDay, tomorrow } from "../../src/lib/utils.ts";
+import { UPPER_WEEKS } from "../../src/lib/constants.ts";
+import {
+  atTime,
+  cleanPrompt,
+  commands,
+  getCommand,
+  hasPhrase,
+  isLion,
+  isSalam,
+  nextSchoolDay,
+  tomorrow,
+  weekType,
+} from "../../src/lib/utils.ts";
 
 describe("isSalam", () => {
   test.for(["salam", "Salam!", "hi", "HI there", "hello, world", "salam.", "hey hii", "welcome?", "salams", "salam😊", "ok salam"])(
@@ -129,4 +141,48 @@ describe("getCommand", () => {
       expect(onlyTrue(body)).toEqual([]);
     },
   );
+});
+
+describe("hasPhrase", () => {
+  test.for([
+    ["bakı", "bakı"],
+    ["məncə bakı şəhəridir", "bakı"],
+    ["qız qalası!", "qız qalası"],
+    ["it is c++", "c++"],
+    ["(a) and (b)", "(a)"],
+  ])("%j contains %j", ([text, phrase]) => {
+    expect(hasPhrase(text, phrase)).toBe(true);
+  });
+
+  test.for([
+    ["bakının", "bakı"],
+    ["abakı", "bakı"],
+    ["a b c", "a.b"],
+    ["qız qalasında", "qız qalası"],
+    ["anything", ""],
+  ])("%j does not contain %j", ([text, phrase]) => {
+    expect(hasPhrase(text, phrase)).toBe(false);
+  });
+});
+
+describe("weekType", () => {
+  // Sep 28 - Oct 4 2026 is ISO week 40, Oct 5 - 11 is week 41
+  test.for([
+    ["a Monday", "2026-09-28", "even", "upper"],
+    ["a Sunday, which ends its Monday-started week", "2026-10-04", "even", "upper"],
+    ["the next Monday", "2026-10-05", "even", "lower"],
+    ["a Monday with odd upper weeks", "2026-09-28", "odd", "lower"],
+    ["the next Monday with odd upper weeks", "2026-10-05", "odd", "upper"],
+  ] as const)("%s (%s) with %s upper weeks is %s", ([, day, upperWeeks, expected]) => {
+    expect(weekType(new Date(`${day}T10:00:00`), upperWeeks)).toBe(expected);
+  });
+
+  test("uses the Baku calendar day, not UTC", () => {
+    // Monday 00:30 in Baku is still Sunday in UTC
+    expect(weekType(new Date("2026-10-05T00:30:00+04:00"), "even")).toBe("lower");
+  });
+
+  test("defaults to the semester's UPPER_WEEKS", () => {
+    expect(weekType(new Date("2026-09-28T10:00:00"))).toBe(weekType(new Date("2026-09-28T10:00:00"), UPPER_WEEKS));
+  });
 });

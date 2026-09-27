@@ -250,9 +250,33 @@ describe("handleAIGroupMention", () => {
     expect(msg.react).toHaveBeenCalledWith("❌");
     expect(client.sendMessage).toHaveBeenCalledWith(groups.LOG, expect.stringContaining("🔴"));
   });
+
+  test("apologises even when the error log cannot be sent", async () => {
+    aiResponds(reply(""), reply(""), reply(""));
+    vi.mocked(client.sendMessage).mockRejectedValue(new Error("log group gone"));
+    const { chat, msg } = setup();
+
+    await expect(handleAIGroupMention(msg, chat, true, scheduleService())).resolves.toBeUndefined();
+
+    expect(msg.reply).toHaveBeenCalledExactlyOnceWith(userFriendlyMessages.AI_MESSAGE_FAIL);
+  });
 });
 
 describe("schedule requests", () => {
+  test("reports a failing schedule tool once, without retrying", async () => {
+    aiResponds(toolCall("sendSchedule", { day: "today" }), reply("fallback"));
+    schedule.sendSchedule.mockRejectedValueOnce(new Error("invalid_grant"));
+    const { chat, msg } = setup();
+
+    await handleAIGroupMention(msg, chat, true, scheduleService());
+
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(chat.sendMessage).not.toHaveBeenCalled();
+    expect(msg.react).not.toHaveBeenCalledWith("📅");
+    expect(msg.react).toHaveBeenCalledWith("❌");
+    expect(msg.reply).toHaveBeenCalledExactlyOnceWith(userFriendlyMessages.AI_MESSAGE_FAIL);
+  });
+
   test.for([
     ["send me next monday's schedule", "sendWeekdaySchedule", { weekday: 1 }, [1, undefined]],
     ["upper week wednesday?", "sendWeekdaySchedule", { weekday: 3, week: "upper" }, [3, "upper"]],

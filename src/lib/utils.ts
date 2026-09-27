@@ -1,6 +1,15 @@
-/** Whether any of `words` appears as a whole word (not followed/preceded by a letter or digit) */
+import { getISOWeek } from "date-fns";
+import { UPPER_WEEKS } from "./constants.js";
+
+/** Whether `phrase` appears in `text` as whole words (not followed/preceded by a letter or digit) */
+export function hasPhrase(text: string, phrase: string) {
+  if (!phrase) return false;
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "iu").test(text);
+}
+
 function hasWord(message: string, words: string[]) {
-  return words.some((word) => new RegExp(`(?<![\\p{L}\\p{N}])${word}(?![\\p{L}\\p{N}])`, "iu").test(message));
+  return words.some((word) => hasPhrase(message, word));
 }
 
 export function isSalam(message: string) {
@@ -75,4 +84,10 @@ export function nextSchoolDay(day: Date, schoolDays: number) {
 export function atTime(day: Date, time: string) {
   const [hour, minute] = time.split(":").map(Number);
   return new Date(new Date(day).setHours(hour, minute, 0, 0));
+}
+
+/** Upper or lower week of `day`, by the parity of its Monday-started week number */
+export function weekType(day: Date, upperWeeks = UPPER_WEEKS): "upper" | "lower" {
+  const isOdd = getISOWeek(day) % 2 === 1;
+  return isOdd === (upperWeeks === "odd") ? "upper" : "lower";
 }

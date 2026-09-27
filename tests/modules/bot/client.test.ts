@@ -13,6 +13,7 @@ describe("client", () => {
     expect(client).toBeInstanceOf(Client);
     expect(globalThis._clientInstance).toBe(client);
     expect((client as unknown as { authPath: string }).authPath).toBe(".baileys_auth");
+    expect(console.log).not.toHaveBeenCalled();
   });
 
   test("reuses the existing client when the module is loaded again", async () => {

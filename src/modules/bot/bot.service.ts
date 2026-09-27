@@ -3,7 +3,9 @@ import type { OnModuleInit } from "@nestjs/common";
 import { Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import * as QRCode from "qrcode";
-import { groups, SCHOOL_DAYS, SHIFT, SuperAdminID, UniBotID } from "../../lib/constants.js";
+import { groups, SCHOOL_DAYS, SHIFT, BotOwnerID, UniBotID } from "../../lib/constants.js";
+import { sendErrorLog } from "../../lib/logger.js";
+import { LogMessages, userFriendlyMessages } from "../../lib/logger_messages.js";
 import { isSalam, isLion, getCommand, atTime, nextSchoolDay, cleanPrompt } from "../../lib/utils.js";
 import { type GroupChat } from "../../lib/whatsapp.ts";
 import { GoogleCalendarService } from "../calendar/calendar.service.js";
@@ -40,7 +42,7 @@ export class BotService implements OnModuleInit {
       const uniChat = (await client.getChatById(groups.UNICHAT)) as GroupChat;
       const uniMates = uniChat.participants.map((participant) => participant.id._serialized);
       const uniBotId = await client.getLid(UniBotID);
-      const superAdminId = await client.getLid(SuperAdminID);
+      const botOwnerId = await client.getLid(BotOwnerID);
       // till here
 
       // "ready" fires again after a re-login, avoid duplicate handlers
@@ -48,12 +50,13 @@ export class BotService implements OnModuleInit {
       client.on("message", async (msg) => {
         try {
           const body = msg.body.trim().toLowerCase();
-          const isGroupMateOrChat = [...uniMates, superAdminId, groups.UNICHAT, groups.INFORMATION, groups.FINAL_EXAM].includes(msg.from);
+          const isGroupMateOrChat = [...uniMates, botOwnerId, groups.UNICHAT, groups.INFORMATION, groups.FINAL_EXAM].includes(msg.from);
           const commands = getCommand(body);
           const chat = await msg.getChat();
           const quotedMessage = msg.hasQuotedMsg ? await msg.getQuotedMessage() : null;
           const isUniBotMentioned = [...msg.mentionedIds, quotedMessage?.author].some((mention) => mention === uniBotId);
           const isAdmin = chat.isGroup && (chat as GroupChat).participants.some((p) => p.isAdmin && p.id._serialized === msg.author);
+          const isBotOwner = (msg.author ?? msg.from) === botOwnerId;
 
           // Utils
           const sendStateTyping = async () => await chat.sendStateTyping();
@@ -73,18 +76,19 @@ export class BotService implements OnModuleInit {
             await this.gameService.handleGameStart(msg, chat);
           }
 
-          // Send AI response (the super admin can also talk to it in private with /unibot)
-          const isSuperAdminUniBotCall = !chat.isGroup && commands.isUniBot && msg.from === superAdminId;
-          if ((isUniBotMentioned && chat.isGroup) || isSuperAdminUniBotCall) {
+          // Send AI response (the bot owner can also talk to it in private with /unibot)
+          const isBotOwnerUniBotCall = !chat.isGroup && commands.isUniBot && msg.from === botOwnerId;
+          if ((isUniBotMentioned && chat.isGroup) || isBotOwnerUniBotCall) {
             if (cleanPrompt(msg.body) === "") {
-              if (msg.hasQuotedMsg) msg = await msg.getQuotedMessage();
-              else return;
+              // Asks about the replied message, but never about the bot's own
+              if (!quotedMessage || quotedMessage.fromMe) return;
+              msg = quotedMessage;
             }
             return await handleAIGroupMention(msg, chat, isGroupMateOrChat, this.scheduleService);
           }
 
           // Send Group msg.from
-          if (commands.isConfirm) {
+          if (commands.isConfirm && isBotOwner) {
             await sendStateTyping();
             await msg.reply(msg.from, undefined, { linkPreview: false });
             await msg.react("✅");
@@ -112,10 +116,17 @@ export class BotService implements OnModuleInit {
           if (commands.isSchedule && isGroupMateOrChat) {
             await sendStateTyping();
             const weekday = body.match(/\/schedule\s+([1-5])\b/)?.[1];
-            if (weekday) {
-              const week = commands.isUpper ? "upper" : commands.isLower ? "lower" : undefined;
-              await this.scheduleService.sendDaySchedule(chat, Number(weekday), week);
-            } else await this.scheduleService.sendSchedule(chat, commands.isForTomorrow);
+            try {
+              if (weekday) {
+                const week = commands.isUpper ? "upper" : commands.isLower ? "lower" : undefined;
+                await this.scheduleService.sendDaySchedule(chat, Number(weekday), week);
+              } else await this.scheduleService.sendSchedule(chat, commands.isForTomorrow);
+            } catch (error) {
+              await Promise.allSettled([
+                msg.reply(userFriendlyMessages.SCHEDULE_FAIL),
+                sendErrorLog(LogMessages.SCHEDULE_HANDLER, msg, error),
+              ]);
+            }
           }
 
           // Send Sticker
@@ -133,7 +144,7 @@ export class BotService implements OnModuleInit {
           }
 
           // Echo Message
-          if (commands.isEcho) {
+          if (commands.isEcho && isBotOwner) {
             await sendStateTyping();
             await chat.sendMessage(msg.body.replace(/\/echo/i, "").trim(), { linkPreview: false });
           }
@@ -201,7 +212,6 @@ export class BotService implements OnModuleInit {
     const [hour, minute] = lesson.split(":").map(Number);
     try {
       const nextLessonText = await this.calendarService.getNextLesson(hour, minute);
-      console.log(nextLessonText);
       if (nextLessonText) await client.sendMessage(groups.UNICHAT, nextLessonText);
       this.logger.verbose(`${hour}:${minute} door number sent!`);
     } catch (error) {

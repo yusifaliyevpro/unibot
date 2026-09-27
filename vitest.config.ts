@@ -21,7 +21,7 @@ export default defineConfig({
       ADOBE_CLIENT_ID: "test-adobe-id",
       ADOBE_CLIENT_SECRET: "test-adobe-secret",
       UNIBOT_PHONE_NUMBER: "994500000001@s.whatsapp.net",
-      SUPER_ADMIN_PHONE_NUMBER: "994500000002@s.whatsapp.net",
+      BOT_OWNER_PHONE_NUMBER: "994500000002@s.whatsapp.net",
       UNICHAT_GROUP_ID: "111111111111111111@g.us",
       INFORMATION_GROUP_ID: "222222222222222222@g.us",
       TEST_GROUP_ID: "333333333333333333@g.us",

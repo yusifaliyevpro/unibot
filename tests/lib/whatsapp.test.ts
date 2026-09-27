@@ -77,6 +77,14 @@ async function fire(event: string, payload: unknown, socket = sock()) {
   await Promise.all(socket.ev.listeners(event).map((listener) => (listener as (p: unknown) => unknown)(payload)));
 }
 
+/** Closes the connection like Baileys does, optionally with a disconnect status code */
+async function drop(statusCode?: number) {
+  await fire("connection.update", {
+    connection: "close",
+    lastDisconnect: statusCode ? { error: { output: { statusCode } } } : undefined,
+  });
+}
+
 async function connectedClient() {
   const client = new Client({ authStrategy: new LocalAuth(authDir) });
   await client.initialize();
@@ -229,10 +237,74 @@ describe("connection lifecycle", () => {
     expect(disconnected).not.toHaveBeenCalled();
   });
 
-  test("reconnects when the close has no status code", async () => {
-    await connectedClient();
-    await fire("connection.update", { connection: "close" });
-    expect(makeWASocket).toHaveBeenCalledTimes(2);
+  describe("after a dropped connection", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+      vi.setSystemTime(NOW);
+    });
+
+    test.for([undefined, 408, 428, 503])("reconnects after a delay (status %s)", async (statusCode) => {
+      await connectedClient();
+      await drop(statusCode);
+      expect(makeWASocket).toHaveBeenCalledOnce();
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(makeWASocket).toHaveBeenCalledTimes(2);
+    });
+
+    test("waits longer after each failed attempt, up to a minute", async () => {
+      await connectedClient();
+      const waits: number[] = [];
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const socketsBefore = vi.mocked(makeWASocket).mock.calls.length;
+        await drop(408);
+        let waited = 0;
+        while (vi.mocked(makeWASocket).mock.calls.length === socketsBefore) {
+          await vi.advanceTimersByTimeAsync(500);
+          waited += 500;
+        }
+        waits.push(waited);
+      }
+      expect(waits).toEqual([1000, 2000, 4000, 8000, 16000, 32000, 60000, 60000]);
+    });
+
+    test("starts over with short waits once connected again", async () => {
+      await connectedClient();
+      await drop(408);
+      await vi.advanceTimersByTimeAsync(1000);
+      await drop(408);
+      await vi.advanceTimersByTimeAsync(2000);
+      await fire("connection.update", { connection: "open" });
+
+      await drop(408);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(makeWASocket).toHaveBeenCalledTimes(4);
+    });
+
+    test("retries when reconnecting itself fails", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      await connectedClient();
+      vi.mocked(useMultiFileAuthState).mockRejectedValueOnce(new Error("disk full"));
+
+      await drop(408);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(makeWASocket).toHaveBeenCalledOnce();
+
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(makeWASocket).toHaveBeenCalledTimes(2);
+    });
+
+    test("does not reconnect when another session took over", async () => {
+      const client = await connectedClient();
+      const disconnected = vi.fn();
+      client.on("disconnected", disconnected);
+
+      await drop(440);
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+
+      expect(makeWASocket).toHaveBeenCalledOnce();
+      expect(disconnected).not.toHaveBeenCalled();
+    });
   });
 
   test("clears the session on logout and becomes ready again after re-pairing", async () => {
@@ -580,6 +652,17 @@ describe("chats", () => {
     expect(sock().groupMetadata).toHaveBeenCalledTimes(3);
   });
 
+  test("group members are resolved once until the group changes", async () => {
+    const client = await connectedClient();
+    await client.getChatById(GROUP);
+    await client.getChatById(GROUP);
+    expect(sock().signalRepository.lidMapping.getLIDForPN).toHaveBeenCalledOnce();
+
+    await fire("group-participants.update", { id: GROUP, participants: [], action: "add" });
+    await client.getChatById(GROUP);
+    expect(sock().signalRepository.lidMapping.getLIDForPN).toHaveBeenCalledTimes(2);
+  });
+
   test("private chats are named after the sender", async () => {
     const client = await connectedClient();
     await deliver(client, [incoming({ pushName: "Ali Aliyev" })]);
@@ -708,7 +791,7 @@ describe("contacts", () => {
   test("uses the push name of the message", async () => {
     const client = await connectedClient();
     const [msg] = await deliver(client, [incoming({ jid: GROUP, participant: ALI_LID, pushName: "Ali" })]);
-    expect(await msg.getContact()).toMatchObject({ id: { _serialized: ALI_LID }, pushname: "Ali", number: "100000000000001" });
+    expect(await msg.getContact()).toMatchObject({ id: { _serialized: ALI_LID }, pushname: "Ali" });
   });
 
   test("falls back to a learned name, then the number", async () => {

@@ -51,6 +51,7 @@ for (const method of ["info", "warn"] as const) {
 const STORE_LIMIT = 20;
 const MAX_CHATS = 100;
 const MAX_NAMES = 2000;
+const MAX_RECONNECT_DELAY = 60_000;
 
 function setBounded<K, V>(map: Map<K, V>, key: K, value: V, max: number) {
   map.delete(key);
@@ -105,7 +106,6 @@ export class MessageMedia {
 
 export type Contact = {
   id: { _serialized: string };
-  number: string;
   pushname: string;
   getProfilePicUrl: () => Promise<string | undefined>;
 };
@@ -339,6 +339,10 @@ export class Client extends EventEmitter<ClientEvents> {
   /** unix seconds of the last connection open, older (offline) messages are ignored */
   private onlineSince = 0;
   private groupCache = new Map<string, GroupMetadata>();
+  /** Members by LID, resolving them can mean a LID lookup per member */
+  private participantsCache = new Map<string, GroupParticipant[]>();
+  private reconnectAttempts = 0;
+  private reconnectTimer?: NodeJS.Timeout;
 
   constructor(private options: { authStrategy?: LocalAuth } = {}) {
     super();
@@ -366,6 +370,7 @@ export class Client extends EventEmitter<ClientEvents> {
       if (qr) this.emit("qr", qr);
 
       if (connection === "open") {
+        this.reconnectAttempts = 0;
         this.onlineSince = Math.floor(Date.now() / 1000);
         this.info = { wid: { _serialized: jidNormalizedUser(sock.user!.lid ?? sock.user!.id) }, pushname: sock.user?.name ?? "" };
         this.emit("authenticated");
@@ -382,9 +387,14 @@ export class Client extends EventEmitter<ClientEvents> {
           await rm(this.authPath, { recursive: true, force: true });
           if (statusCode === DisconnectReason.badSession) this.emit("auth_failure", "Bad session");
           this.emit("disconnected", statusCode === DisconnectReason.loggedOut ? "LOGOUT" : "BAD_SESSION");
+        } else if (statusCode === DisconnectReason.connectionReplaced) {
+          // Reconnecting would kick the other session, which then kicks this one, forever
+          logger.error("Connection replaced by another session, not reconnecting");
+        } else if (statusCode === DisconnectReason.restartRequired) {
+          // Expected right after the QR scan
+          await this.reconnect();
         } else {
-          // Baileys needs a fresh socket after every non-fatal close (e.g. restartRequired after QR scan)
-          await this.initialize();
+          this.scheduleReconnect();
         }
       }
     });
@@ -443,9 +453,31 @@ export class Client extends EventEmitter<ClientEvents> {
     });
 
     sock.ev.on("groups.update", (updates) => {
-      for (const u of updates) if (u.id) this.groupCache.delete(u.id);
+      for (const u of updates) if (u.id) this.forgetGroup(u.id);
     });
-    sock.ev.on("group-participants.update", ({ id }) => this.groupCache.delete(id));
+    sock.ev.on("group-participants.update", ({ id }) => this.forgetGroup(id));
+  }
+
+  /** Fresh socket, retried later if even that fails */
+  private async reconnect() {
+    try {
+      await this.initialize();
+    } catch (error) {
+      logger.error(error, "Failed to reconnect");
+      this.scheduleReconnect();
+    }
+  }
+
+  /** Waits 1s, 2s, 4s... up to a minute between attempts, so an outage isn't a tight reconnect loop */
+  private scheduleReconnect() {
+    const delay = Math.min(1000 * 2 ** this.reconnectAttempts++, MAX_RECONNECT_DELAY);
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => void this.reconnect(), delay);
+  }
+
+  private forgetGroup(jid: string) {
+    this.groupCache.delete(jid);
+    this.participantsCache.delete(jid);
   }
 
   async sendMessage(chatId: string, content: string | MessageMedia, options: MessageSendOptions = {}) {
@@ -462,13 +494,17 @@ export class Client extends EventEmitter<ClientEvents> {
   async getChatById(jid: string): Promise<Chat> {
     if (isJidGroup(jid)) {
       const metadata = await this.groupMetadata(jid);
-      const participants = await Promise.all(
-        metadata.participants.map(async (p) => ({
-          id: { _serialized: await this.resolveId(p.id, p.lid) },
-          isAdmin: !!p.admin,
-          isSuperAdmin: p.admin === "superadmin",
-        })),
-      );
+      let participants = this.participantsCache.get(jid);
+      if (!participants) {
+        participants = await Promise.all(
+          metadata.participants.map(async (p) => ({
+            id: { _serialized: await this.resolveId(p.id, p.lid) },
+            isAdmin: !!p.admin,
+            isSuperAdmin: p.admin === "superadmin",
+          })),
+        );
+        this.participantsCache.set(jid, participants);
+      }
       return new GroupChat(this, jid, metadata.subject, participants);
     }
 
@@ -484,11 +520,10 @@ export class Client extends EventEmitter<ClientEvents> {
   }
 
   getContactById(jid: string, pushName?: string | null): Contact {
-    const number = jid.split("@")[0];
     return {
       id: { _serialized: jid },
-      number,
-      pushname: pushName || this.names.get(jidNormalizedUser(jid)) || number,
+      // Last resort is the id's user part (LID digits, rarely a phone number)
+      pushname: pushName || this.names.get(jidNormalizedUser(jid)) || jid.split("@")[0],
       getProfilePicUrl: async () => await this.sock.profilePictureUrl(jid, "image").catch(() => undefined),
     };
   }

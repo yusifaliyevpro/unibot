@@ -54,7 +54,6 @@ export function fakeMessage(init: FakeMessageInit = {}) {
   const from = init.from ?? "100000000000001@lid";
   const contact: Contact = {
     id: { _serialized: init.author ?? from },
-    number: (init.author ?? from).split("@")[0],
     pushname: init.pushname ?? "Test User",
     getProfilePicUrl: vi.fn(async () => init.profilePicUrl),
   };
@@ -127,6 +126,11 @@ export function fakePrisma() {
       if (!session) throw new Error(`No session ${where.id}`);
       apply(session, data);
       return { ...session };
+    }),
+    updateMany: vi.fn(async ({ where, data }: { where: Partial<GameSession>; data: Record<string, unknown> }) => {
+      const matched = sessions.filter((s) => matches(s, where));
+      for (const session of matched) apply(session, data);
+      return { count: matched.length };
     }),
   };
   return { sessions, gameSession };

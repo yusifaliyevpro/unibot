@@ -8,7 +8,7 @@ beforeEach(() => {
 
 describe("env derived constants", () => {
   test("reads group and user ids from the environment", async () => {
-    const { groups, SuperAdminID, UniBotID } = await loadConstants();
+    const { groups, BotOwnerID, UniBotID } = await loadConstants();
     expect(groups).toEqual({
       UNICHAT: "111111111111111111@g.us",
       INFORMATION: "222222222222222222@g.us",
@@ -16,11 +16,11 @@ describe("env derived constants", () => {
       LOG: "444444444444444444@g.us",
       FINAL_EXAM: "555555555555555555@g.us",
     });
-    expect(SuperAdminID).toBe("994500000002@s.whatsapp.net");
+    expect(BotOwnerID).toBe("994500000002@s.whatsapp.net");
     expect(UniBotID).toBe("994500000001@s.whatsapp.net");
   });
 
-  test.for(["UNICHAT_GROUP_ID", "LOG_GROUP_ID", "SUPER_ADMIN_PHONE_NUMBER", "UNIBOT_PHONE_NUMBER"])(
+  test.for(["UNICHAT_GROUP_ID", "LOG_GROUP_ID", "BOT_OWNER_PHONE_NUMBER", "UNIBOT_PHONE_NUMBER"])(
     "throws when %s is missing",
     async (name) => {
       vi.stubEnv(name, "");

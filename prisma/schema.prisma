@@ -15,39 +15,11 @@ datasource db {
 
 model GameSession {
   id                     String  @id @default(cuid())
-  phoneNumber            String
+  /// Group id (@g.us) or user LID (@lid) the game is played in, not a phone number
+  chatId                 String
   packageID              Int
   lastQuestion           Int
   packageIndex           Int
   isActive               Boolean
   numberOfCorrectAnswers Int     @default(0)
 }
-
-// Deprecated
-// model Teacher {
-//   id     String @id @default(cuid())
-//   name   String
-//   number String @unique
-// }
-
-// model Task {
-//   id          String   @id @default(cuid())
-//   subject   String
-//   taskText  String
-//   taskDay   DateTime
-//   createdAt DateTime @default(now())
-// }
-
-// model Group {
-//  id          String   @id @default(cuid())
-//   isQuoteGroup Boolean
-//   to           String  @unique
-// }
-
-// Deprecated
-// model ShortenLink {
-//  id          String   @id @default(cuid())
-//   slug      String   @unique
-//   link      String
-//   createdAt DateTime @default(now())
-// }

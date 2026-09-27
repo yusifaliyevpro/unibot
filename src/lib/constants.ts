@@ -15,13 +15,17 @@ export const groups = {
   FINAL_EXAM: getEnvVar("FINAL_EXAM_GROUP_ID"),
 };
 
-export const SuperAdminID = getEnvVar("SUPER_ADMIN_PHONE_NUMBER");
+/** The bot owner's (developer's) own number, not a group admin */
+export const BotOwnerID = getEnvVar("BOT_OWNER_PHONE_NUMBER");
 export const UniBotID = getEnvVar("UNIBOT_PHONE_NUMBER");
 
 type Time = `${number}:${number}`;
 type Lesson = { start: Time; end: Time };
 
 const REMINDER_MINUTES_BEFORE = 15;
+
+/** Which (Monday to Sunday, ISO numbered) weeks are upper weeks this semester, flip it when needed */
+export const UPPER_WEEKS: "odd" | "even" = "even";
 
 // Lesson days of the semester: 5 = Monday-Friday, 4 = Monday-Thursday
 export const SCHOOL_DAYS = 5;

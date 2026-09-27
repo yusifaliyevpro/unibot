@@ -1,7 +1,7 @@
 import type { calendar_v3 } from "@googleapis/calendar";
 import { Injectable } from "@nestjs/common";
-import { getWeek, isSameDay } from "date-fns";
-import { tomorrow } from "../../lib/utils.js";
+import { isSameDay } from "date-fns";
+import { tomorrow, weekType } from "../../lib/utils.js";
 import type { Chat } from "../../lib/whatsapp.ts";
 import { GoogleCalendarService } from "../../modules/calendar/calendar.service.js";
 
@@ -12,40 +12,29 @@ export class ScheduleService {
   constructor(private calendarService: GoogleCalendarService) {}
 
   async sendSchedule(chat: Chat, isForTomorrow: boolean) {
-    try {
-      const { dayLabel, targetDay } = this.getDay(isForTomorrow);
-      const events = await this.calendarService.getSchedule(targetDay);
-      const scheduleMessage = this.generateScheduleText(events, targetDay);
-      const schmsg = await chat.sendMessage(scheduleMessage);
-      console.log(`Schedule for ${dayLabel} sent to ${chat.name}`);
-      return schmsg;
-    } catch (error) {
-      console.error(error);
-    }
+    const targetDay = isForTomorrow ? tomorrow(new Date()) : new Date();
+    const events = await this.calendarService.getSchedule(targetDay);
+    return await chat.sendMessage(this.generateScheduleText(events, targetDay));
   }
 
   /** weekday: 1 (Monday) - 5 (Friday). Without week, both weeks are sent (as one if they're identical) */
   async sendDaySchedule(chat: Chat, weekday: number, week?: "upper" | "lower") {
-    try {
-      const dayName = WEEKDAYS[weekday - 1];
-      const date = new Date();
-      date.setDate(date.getDate() + ((weekday - date.getDay() + 7) % 7));
-      const nextWeek = new Date(date);
-      nextWeek.setDate(date.getDate() + 7);
-      const [upperDate, lowerDate] = getWeek(date) % 2 === 0 ? [date, nextWeek] : [nextWeek, date];
+    const dayName = WEEKDAYS[weekday - 1];
+    const date = new Date();
+    date.setDate(date.getDate() + ((weekday - date.getDay() + 7) % 7));
+    const nextWeek = new Date(date);
+    nextWeek.setDate(date.getDate() + 7);
+    const [upperDate, lowerDate] = weekType(date) === "upper" ? [date, nextWeek] : [nextWeek, date];
 
-      if (week) {
-        const events = await this.calendarService.getSchedule(week === "upper" ? upperDate : lowerDate);
-        return await chat.sendMessage(this.formatSchedule(`*${dayName}* (*${week.toUpperCase()}*)`, events));
-      }
-
-      const [upper, lower] = await Promise.all([this.calendarService.getSchedule(upperDate), this.calendarService.getSchedule(lowerDate)]);
-      if (this.eventLines(upper) === this.eventLines(lower)) return await chat.sendMessage(this.formatSchedule(`*${dayName}*`, upper));
-      await chat.sendMessage(this.formatSchedule(`*${dayName}* (*UPPER*)`, upper));
-      await chat.sendMessage(this.formatSchedule(`*${dayName}* (*LOWER*)`, lower));
-    } catch (error) {
-      console.error(error);
+    if (week) {
+      const events = await this.calendarService.getSchedule(week === "upper" ? upperDate : lowerDate);
+      return await chat.sendMessage(this.formatSchedule(`*${dayName}* (*${week.toUpperCase()}*)`, events));
     }
+
+    const [upper, lower] = await Promise.all([this.calendarService.getSchedule(upperDate), this.calendarService.getSchedule(lowerDate)]);
+    if (this.eventLines(upper) === this.eventLines(lower)) return await chat.sendMessage(this.formatSchedule(`*${dayName}*`, upper));
+    await chat.sendMessage(this.formatSchedule(`*${dayName}* (*UPPER*)`, upper));
+    await chat.sendMessage(this.formatSchedule(`*${dayName}* (*LOWER*)`, lower));
   }
 
   /** Titled "Today", "Tomorrow" or the weekday name of `targetDay`, with its week type */
@@ -56,7 +45,7 @@ export class ScheduleService {
     if (!events.length) return `You are free ${dayLabel ?? `on ${dayName}`}😊`;
 
     const title = dayLabel ? `${dayLabel[0].toUpperCase()}${dayLabel.slice(1)}` : dayName;
-    return this.formatSchedule(`*${title}* (*${getWeek(targetDay) % 2 === 0 ? "UPPER" : "LOWER"}*)`, events);
+    return this.formatSchedule(`*${title}* (*${weekType(targetDay).toUpperCase()}*)`, events);
   }
 
   private formatSchedule(title: string, events: calendar_v3.Schema$Event[]) {
@@ -80,12 +69,5 @@ export class ScheduleService {
     const end = new Date((event.end?.dateTime || event.end?.date) as string).toLocaleString("en-US", options);
 
     return { start, end };
-  }
-
-  private getDay(isForTomorrow: boolean) {
-    const today = new Date();
-    const dayLabel = isForTomorrow ? "tomorrow" : "today";
-    const targetDay = isForTomorrow ? tomorrow(today) : today;
-    return { dayLabel, targetDay };
   }
 }

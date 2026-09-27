@@ -18,7 +18,7 @@ const EnvSchema = z.object({
   ADOBE_CLIENT_ID: z.string().trim().min(3),
   ADOBE_CLIENT_SECRET: z.string().trim().min(3),
   UNIBOT_PHONE_NUMBER: z.string().trim().min(3),
-  SUPER_ADMIN_PHONE_NUMBER: z.string().trim().min(3),
+  BOT_OWNER_PHONE_NUMBER: z.string().trim().min(3),
   UNICHAT_GROUP_ID: z.string().trim().min(3),
   INFORMATION_GROUP_ID: z.string().trim().min(3),
   TEST_GROUP_ID: z.string().trim().min(3),

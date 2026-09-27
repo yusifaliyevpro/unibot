@@ -2,6 +2,7 @@ import type { calendar_v3 } from "@googleapis/calendar";
 import { Logger } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { groups, SHIFT } from "../../../src/lib/constants.ts";
+import { userFriendlyMessages } from "../../../src/lib/logger_messages.ts";
 import type { Message } from "../../../src/lib/whatsapp.ts";
 import { BotService } from "../../../src/modules/bot/bot.service.ts";
 import client from "../../../src/modules/bot/client.ts";
@@ -25,8 +26,8 @@ const BOT_LID = "900000000000001@lid";
 const MATE = "100000000000001@lid";
 const ADMIN = "300000000000003@lid";
 const STRANGER = "700000000000007@lid";
-// Not a UniChat member, but still a group mate
-const SUPER_ADMIN = "200000000000002@lid";
+// The bot owner (developer): not a UniChat member, but still a group mate
+const BOT_OWNER = "200000000000002@lid";
 
 const uniChat = fakeChat({
   isGroup: true,
@@ -79,7 +80,7 @@ beforeEach(() => {
   vi.spyOn(client, "sendPresenceAvailable").mockResolvedValue(undefined);
   vi.spyOn(client, "sendMessage").mockResolvedValue(undefined);
   vi.spyOn(client, "getLid").mockImplementation(
-    async (jid) => ({ "994500000001@s.whatsapp.net": BOT_LID, "994500000002@s.whatsapp.net": SUPER_ADMIN })[jid] ?? jid,
+    async (jid) => ({ "994500000001@s.whatsapp.net": BOT_LID, "994500000002@s.whatsapp.net": BOT_OWNER })[jid] ?? jid,
   );
   vi.spyOn(client, "getChatById").mockImplementation(async (jid) =>
     jid === groups.UNICHAT ? uniChat : fakeChat({ id: jid, isGroup: jid.endsWith("@g.us") }),
@@ -234,6 +235,21 @@ describe("message routing", () => {
       expect(vi.mocked(handleAIGroupMention).mock.calls[0][0]).toBe(question);
     });
 
+    test.for<[string, IncomingInit]>([
+      ["a sticker", { type: "sticker", hasMedia: true }],
+      ["a bare mention", { body: "@900000000000001", mentionedIds: [BOT_LID] }],
+    ])("replying to the bot with %s is ignored", async ([, init]) => {
+      const botMessage = fakeMessage({ body: "earlier answer", author: BOT_LID, fromMe: true });
+      await receive({ author: MATE, quoted: botMessage, ...init });
+      expect(handleAIGroupMention).not.toHaveBeenCalled();
+    });
+
+    test("a bare /unibot replying to the bot's own message is ignored", async () => {
+      const botMessage = fakeMessage({ body: "earlier answer", from: BOT_OWNER, fromMe: true });
+      await receive({ body: "/unibot", from: BOT_OWNER, quoted: botMessage });
+      expect(handleAIGroupMention).not.toHaveBeenCalled();
+    });
+
     test("a bare mention alone is ignored", async () => {
       await receive({ body: " @900000000000001 ", author: MATE, mentionedIds: [BOT_LID] });
       expect(handleAIGroupMention).not.toHaveBeenCalled();
@@ -250,7 +266,7 @@ describe("message routing", () => {
     });
 
     test("/unibot in a group needs a mention like any message", async () => {
-      await receive({ body: "/unibot hi", author: SUPER_ADMIN });
+      await receive({ body: "/unibot hi", author: BOT_OWNER });
       expect(handleAIGroupMention).not.toHaveBeenCalled();
     });
 
@@ -262,19 +278,19 @@ describe("message routing", () => {
   });
 
   describe("/unibot in private", () => {
-    test("the super admin can talk to the AI as a group mate", async () => {
-      const { msg, chat } = await receive({ body: "/unibot send me next monday's schedule", from: SUPER_ADMIN });
+    test("the bot owner can talk to the AI as a group mate", async () => {
+      const { msg, chat } = await receive({ body: "/unibot send me next monday's schedule", from: BOT_OWNER });
       expect(handleAIGroupMention).toHaveBeenCalledExactlyOnceWith(msg, chat, true, schedule);
     });
 
     test("a bare /unibot asks about the replied message", async () => {
-      const question = fakeMessage({ body: "When is the exam?", from: SUPER_ADMIN });
-      await receive({ body: "/unibot", from: SUPER_ADMIN, quoted: question });
+      const question = fakeMessage({ body: "When is the exam?", from: BOT_OWNER });
+      await receive({ body: "/unibot", from: BOT_OWNER, quoted: question });
       expect(vi.mocked(handleAIGroupMention).mock.calls[0][0]).toBe(question);
     });
 
     test("a bare /unibot alone is ignored", async () => {
-      await receive({ body: " /unibot ", from: SUPER_ADMIN });
+      await receive({ body: " /unibot ", from: BOT_OWNER });
       expect(handleAIGroupMention).not.toHaveBeenCalled();
     });
 
@@ -284,13 +300,13 @@ describe("message routing", () => {
       expect(msg.reply).not.toHaveBeenCalled();
     });
 
-    test("the super admin's other messages are handled normally", async () => {
-      await receive({ body: "what's up", from: SUPER_ADMIN });
+    test("the bot owner's other messages are handled normally", async () => {
+      await receive({ body: "what's up", from: BOT_OWNER });
       expect(handleAIGroupMention).not.toHaveBeenCalled();
     });
 
-    test("the super admin counts as a group mate", async () => {
-      await receive({ body: "/help", from: SUPER_ADMIN });
+    test("the bot owner counts as a group mate", async () => {
+      await receive({ body: "/help", from: BOT_OWNER });
       expect(vi.mocked(handleHelpBox).mock.calls[0][2]).toBe(true);
     });
   });
@@ -318,18 +334,34 @@ describe("message routing", () => {
       expect(handleHelpBox).toHaveBeenCalledWith(uniChat, msg, true);
     });
 
-    test("/confirm replies with the chat id", async () => {
-      const { msg } = await receive({ body: "/confirm", author: MATE });
-      expect(msg.reply).toHaveBeenCalledWith(groups.UNICHAT, undefined, { linkPreview: false });
+    test.for([
+      ["in a group", { author: BOT_OWNER }, groups.UNICHAT],
+      ["in private", { from: BOT_OWNER }, BOT_OWNER],
+    ] as const)("/confirm from the bot owner %s replies with the chat id", async ([, init, id]) => {
+      const { msg } = await receive({ body: "/confirm", ...init });
+      expect(msg.reply).toHaveBeenCalledWith(id, undefined, { linkPreview: false });
       expect(msg.react).toHaveBeenCalledWith("✅");
     });
 
     test.for([
       ["/echo Hello *everyone*", "Hello *everyone*"],
       ["/ECHO Loud", "Loud"],
-    ])("%j echoes %j", async ([body, expected]) => {
-      const { chat } = await receive({ body, author: ADMIN });
+    ])("%j from the bot owner echoes %j", async ([body, expected]) => {
+      const { chat } = await receive({ body, author: BOT_OWNER });
       expect(chat.sendMessage).toHaveBeenCalledWith(expected, { linkPreview: false });
+    });
+
+    test.for([
+      ["a group admin", { author: ADMIN }],
+      ["a group mate", { author: MATE }],
+      ["a stranger in private", { from: STRANGER }],
+    ] as const)("/echo and /confirm are ignored for %s", async ([, init]) => {
+      for (const body of ["/echo hacked", "/confirm"]) {
+        const { msg, chat } = await receive({ body, ...init });
+        expect(msg.reply).not.toHaveBeenCalled();
+        expect(msg.react).not.toHaveBeenCalled();
+        expect(chat.sendMessage).not.toHaveBeenCalledWith("hacked", expect.anything());
+      }
     });
   });
 
@@ -370,11 +402,22 @@ describe("message routing", () => {
 
     test.for([
       ["a UniChat member in private", { from: MATE }],
-      ["the super admin in private", { from: SUPER_ADMIN }],
+      ["the bot owner in private", { from: BOT_OWNER }],
       ["the information group", { author: STRANGER, chatInit: { isGroup: true, id: groups.INFORMATION } }],
     ] as const)("works for %s", async ([, init]) => {
       const { chat } = await receive({ body: "/schedule", ...init });
       expect(schedule.sendSchedule).toHaveBeenCalledWith(chat, false);
+    });
+
+    test.for([
+      ["/schedule", "sendSchedule"],
+      ["/schedule 2", "sendDaySchedule"],
+    ] as const)("tells the user when %j fails", async ([body, method]) => {
+      schedule[method].mockRejectedValueOnce(new Error("invalid_grant"));
+      const { msg } = await receive({ body, author: MATE });
+      expect(msg.reply).toHaveBeenCalledWith(userFriendlyMessages.SCHEDULE_FAIL);
+      expect(msg.react).toHaveBeenCalledWith("❌");
+      expect(client.sendMessage).toHaveBeenCalledWith(groups.LOG, expect.stringContaining("*SCHEDULE_HANDLER*"));
     });
 
     test("does not also make a sticker", async () => {
@@ -448,6 +491,7 @@ describe("cron jobs", () => {
       await runCron(cron);
       expect(calendar.getNextLesson).toHaveBeenCalledWith(hour, minute);
       expect(client.sendMessage).toHaveBeenCalledWith(groups.UNICHAT, "⌛ _*PTMS (m)*_ starts in *15 minutes* at *1-520*");
+      expect(console.log).not.toHaveBeenCalled();
     });
 
     test("stays quiet without a lesson", async () => {

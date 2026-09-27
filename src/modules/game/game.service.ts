@@ -7,7 +7,7 @@ import type { GameSession, Prisma } from "../../generated/prisma/client.ts";
 import { ENV } from "../../lib/env.js";
 import { sendErrorLog, sendLog } from "../../lib/logger.ts";
 import { gameMsgs, LogMessages } from "../../lib/logger_messages.ts";
-import { getCommand } from "../../lib/utils.js";
+import { getCommand, hasPhrase } from "../../lib/utils.js";
 import { type Chat, type GroupChat, type Message, MessageMedia } from "../../lib/whatsapp.ts";
 import client from "../../modules/bot/client.js";
 import { PrismaService } from "../../prisma.service.ts";
@@ -21,51 +21,65 @@ export class GameService {
       const { isQuit, isRight, isPass } = getCommand(msg.body.trim().toLowerCase());
       const sendStateTyping = async () => await chat.sendStateTyping();
 
-      const session = await this.GameSession({ isActive: true, phoneNumber: msg.from });
-      if (!session) return;
+      const session = await this.GameSession({ isActive: true, chatId: msg.from });
+      if (!session) return (await this.activeChatIds()).delete(msg.from);
       const gamePackage = gamePackages[session.packageIndex];
       const questionCount = gamePackage.questions.length;
       const isLastQuestion = questionCount === session.lastQuestion + 1;
       const question = gamePackage.questions[session.lastQuestion];
       const sendAnswer = async (to: Message = msg) => await to.reply(this.answerText(question), undefined, { linkPreview: false });
 
-      // Moves on to the next question, or finishes the game after the last one
-      const advance = async (isCorrect: boolean) => {
-        await this.UpdateLastQuestion(session.id);
-        if (isCorrect) await this.markAsCorrect(session.id);
-        if (isLastQuestion) return await this.quitGame(chat, msg, session.id, questionCount);
+      // Messages are handled concurrently, so only the first one to move past the question may act on it
+      const claimQuestion = async (isCorrect: boolean) => {
+        const { count } = await this.prisma.gameSession.updateMany({
+          where: { id: session.id, isActive: true, lastQuestion: session.lastQuestion },
+          data: { lastQuestion: { increment: 1 }, ...(isCorrect && { numberOfCorrectAnswers: { increment: 1 } }) },
+        });
+        return count > 0;
+      };
+
+      // Sends the next question, or finishes the game after the last one
+      const next = async (isCorrect: boolean) => {
+        if (isLastQuestion) {
+          await this.endGame(session, session.lastQuestion + 1);
+          return await this.sendStats(chat, msg, session, questionCount, session.numberOfCorrectAnswers + Number(isCorrect));
+        }
         await sendStateTyping();
         await this.sendQuestion(chat, gamePackage.questions[session.lastQuestion + 1], session.lastQuestion + 2);
       };
 
       if (isAdmin && msg.hasQuotedMsg && isRight) {
+        if (!(await claimQuestion(true))) return;
         const quotedMsg = await msg.getQuotedMessage();
         await quotedMsg.react("✅");
         await sendAnswer(quotedMsg);
-        await advance(true);
+        await next(true);
       } else if (isQuit) {
         await sendStateTyping();
         if (chat.isGroup && !isAdmin) return await msg.reply(gameMsgs.ONLY_ADMINS_CAN_QUIT);
+        if (!(await this.endGame(session))) return;
         await sendAnswer();
-        await this.quitGame(chat, msg, session.id, questionCount);
+        await this.sendStats(chat, msg, session, questionCount, session.numberOfCorrectAnswers);
       } else if (isPass) {
         await sendStateTyping();
+        if (!(await claimQuestion(false))) return;
         await sendAnswer();
-        await advance(false);
+        await next(false);
       } else {
         await msg.react("⏳");
         // Azerbaijani casing, so "BAKI" matches "Bakı"
         const answer = msg.body.toLocaleLowerCase("az");
-        const matches = (expected: string | null) => !!expected && answer.includes(expected.toLocaleLowerCase("az"));
+        const matches = (expected: string | null) => !!expected && hasPhrase(answer, expected.trim().toLocaleLowerCase("az"));
         if (
           matches(question.answer) ||
           matches(question.considered) ||
           (await this.verifyAnswerByAI(question.answer, question.considered, msg.body))
         ) {
-          await sendStateTyping();
           await msg.react("✅");
+          if (!(await claimQuestion(true))) return;
+          await sendStateTyping();
           await sendAnswer();
-          await advance(true);
+          await next(true);
         } else {
           await msg.react("❌");
         }
@@ -98,7 +112,7 @@ export class GameService {
       const session = await this.createGameSession({
         lastQuestion: 0,
         packageID: gamePackage.id,
-        phoneNumber: msg.from,
+        chatId: msg.from,
         packageIndex: gamePackageIndex,
         isActive: true,
       });
@@ -117,8 +131,8 @@ export class GameService {
       await msg.react("🏓");
 
       if (chat.isGroup) {
-        const superAdmin = (chat as GroupChat).participants.find((p) => p.isSuperAdmin)?.id._serialized;
-        if (superAdmin) await client.sendMessage(superAdmin, gamePackage.questions.map((gp, i) => `${i + 1}. ${gp.answer}`).join("\n"));
+        const groupOwner = (chat as GroupChat).participants.find((p) => p.isSuperAdmin)?.id._serialized;
+        if (groupOwner) await client.sendMessage(groupOwner, gamePackage.questions.map((gp, i) => `${i + 1}. ${gp.answer}`).join("\n"));
       }
 
       await sendLog(LogMessages.NEW_GAME, msg);
@@ -127,13 +141,21 @@ export class GameService {
     }
   }
 
-  private async quitGame(chat: Chat, msg: Message, sessionId: string, questionCount: number) {
-    const session = await this.prisma.gameSession.update({ data: { isActive: false }, where: { id: sessionId } });
+  /** Ends the game unless another message already moved it past `lastQuestion` */
+  private async endGame(session: GameSession, lastQuestion = session.lastQuestion) {
+    const { count } = await this.prisma.gameSession.updateMany({
+      where: { id: session.id, isActive: true, lastQuestion },
+      data: { isActive: false },
+    });
+    if (count) (await this.activeChatIds()).delete(session.chatId);
+    return count > 0;
+  }
 
+  private async sendStats(chat: Chat, msg: Message, session: GameSession, questionCount: number, correctAnswers: number) {
     await chat.sendMessage(
       `🧾 Paketdəki sualların sayı: ${questionCount}
 📈 Oynanılan sual sayı: ${Math.min(session.lastQuestion + 1, questionCount)}
-✅ Doğru cavabların sayı: ${session.numberOfCorrectAnswers}`,
+✅ Doğru cavabların sayı: ${correctAnswers}`,
     );
     await msg.reply(gameMsgs.FINISHED);
   }
@@ -162,21 +184,28 @@ export class GameService {
     });
   }
 
-  async hasActiveSession(phoneNumber: string): Promise<boolean> {
-    return !!(await this.prisma.gameSession.findMany({ where: { phoneNumber, isActive: true } })).length;
+  /** Chats with an active game, loaded once and then kept up to date here instead of querying on every message */
+  private activeChats?: Promise<Set<string>>;
+
+  private async activeChatIds() {
+    this.activeChats ??= this.prisma.gameSession
+      .findMany({ where: { isActive: true }, select: { chatId: true } })
+      .then((sessions) => new Set(sessions.map((s) => s.chatId)))
+      .catch((error: unknown) => {
+        this.activeChats = undefined;
+        throw error;
+      });
+    return await this.activeChats;
   }
+
+  async hasActiveSession(chatId: string) {
+    return (await this.activeChatIds()).has(chatId);
+  }
+
   private async createGameSession(data: Prisma.GameSessionCreateInput): Promise<GameSession> {
-    return await this.prisma.gameSession.create({
-      data,
-    });
-  }
-
-  private async UpdateLastQuestion(id: string) {
-    await this.prisma.gameSession.update({ data: { lastQuestion: { increment: 1 } }, where: { id } });
-  }
-
-  private async markAsCorrect(id: string) {
-    await this.prisma.gameSession.update({ where: { id }, data: { numberOfCorrectAnswers: { increment: 1 } } });
+    const session = await this.prisma.gameSession.create({ data });
+    (await this.activeChatIds()).add(session.chatId);
+    return session;
   }
 
   private async verifyAnswerByAI(answer: string, considered: string | null, userAnswer: string) {
