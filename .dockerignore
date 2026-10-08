@@ -1,5 +1,5 @@
 .git
-.env
+.env*
 .baileys_auth
 node_modules
 dist

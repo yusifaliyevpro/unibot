@@ -1,12 +1,14 @@
 # syntax=docker/dockerfile:1
-FROM node:26-slim
+FROM ghcr.io/pnpm/pnpm:12
 
-RUN npm install -g pnpm@latest
+RUN pnpm runtime set node 26 -g
 
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
+# Store lives outside /pnpm/store so the mount doesn't hide the Node runtime
+RUN --mount=type=cache,id=pnpm,target=/var/cache/pnpm \
+    pnpm install --store-dir /var/cache/pnpm --frozen-lockfile
 
 COPY . .
 
