@@ -1,36 +1,41 @@
 {
   "compilerOptions": {
+    // Runtime: Node 26
+    "target": "es2025",
+    "lib": ["es2025", "esnext.temporal"],
+    "types": ["node"],
+
+    // Modules
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "resolvePackageJsonExports": true,
     "esModuleInterop": true,
-    "isolatedModules": true,
-    "declaration": true,
-    "removeComments": true,
-    "verbatimModuleSyntax": true,
-    "emitDecoratorMetadata": true,
-    "rewriteRelativeImportExtensions": true,
-    "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    "target": "ES2023",
-    "sourceMap": true,
-    "outDir": "./dist",
-    "incremental": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "strictPropertyInitialization": false,
-    "types": ["node"],
-    "lib": ["ES2023"],
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "rewriteRelativeImportExtensions": true,
     "resolveJsonModule": true,
-    // "paths": {
-    //   "@/*": ["./src/*"]
-    // },
+    // NestJS decorators
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    // Type checking
+    "strict": true,
     "strictNullChecks": true,
-    "forceConsistentCasingInFileNames": true,
     "noImplicitAny": true,
     "strictBindCallApply": true,
+    "strictPropertyInitialization": false,
+    "noImplicitOverride": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+
+    // Emit
+    "outDir": "./dist",
+    "sourceMap": true,
+    "removeComments": true,
+    "incremental": true
   },
   "exclude": ["node_modules", "dist", "deprecated"]
 }
