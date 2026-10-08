@@ -12,10 +12,10 @@ const lesson = (day: string, start: string, end: string, summary: string): calen
   end: { dateTime: `${day}T${end}:00+04:00` },
 });
 
-const ymd = (date: Date) => date.toLocaleDateString("sv-SE");
+const ymd = (date: Temporal.PlainDate) => date.toString();
 
 function createService(eventsByDay: Record<string, calendar_v3.Schema$Event[]> = {}) {
-  const calendar = { getSchedule: vi.fn(async (day: Date) => eventsByDay[ymd(day)] ?? []) };
+  const calendar = { getSchedule: vi.fn(async (day: Temporal.PlainDate) => eventsByDay[ymd(day)] ?? []) };
   const service = new ScheduleService(calendar as unknown as GoogleCalendarService);
   return { service, calendar, requestedDays: () => calendar.getSchedule.mock.calls.map(([day]) => ymd(day)) };
 }
@@ -23,7 +23,7 @@ function createService(eventsByDay: Record<string, calendar_v3.Schema$Event[]> =
 const sentTexts = (chat: ReturnType<typeof fakeChat>) => chat.sendMessage.mock.calls.map(([text]) => text as string);
 
 beforeEach(() => {
-  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.useFakeTimers({ toFake: ["Temporal"] });
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -32,7 +32,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const at = (iso: string) => vi.setSystemTime(new Date(iso));
+const at = (iso: string) => vi.setSystemTime(iso);
 
 describe("sendSchedule", () => {
   test("sends today's lessons with the week type", async () => {
@@ -122,7 +122,7 @@ describe("generateScheduleText", () => {
   ] as const)("titles %s", ([, day, title]) => {
     at("2026-09-28T13:20:00+04:00");
     const { service } = createService();
-    const text = service.generateScheduleText([lesson(day, "09:00", "10:20", "DS (L)")], new Date(`${day}T00:00:00+04:00`));
+    const text = service.generateScheduleText([lesson(day, "09:00", "10:20", "DS (L)")], Temporal.PlainDate.from(day));
     expect(text).toBe(`${title}\n\n📅 09:00-10:20 | DS (L)`);
   });
 
@@ -133,13 +133,13 @@ describe("generateScheduleText", () => {
   ] as const)("free on %s", ([day, text]) => {
     at("2026-09-28T13:20:00+04:00");
     const { service } = createService();
-    expect(service.generateScheduleText([], new Date(`${day}T12:00:00+04:00`))).toBe(text);
+    expect(service.generateScheduleText([], Temporal.PlainDate.from(day))).toBe(text);
   });
 
   test("a Sunday belongs to the week that started on Monday", () => {
     at("2026-10-02T12:00:00+04:00");
     const { service } = createService();
-    const text = service.generateScheduleText([lesson("2026-10-04", "09:00", "10:20", "DS (L)")], new Date("2026-10-04T00:00:00+04:00"));
+    const text = service.generateScheduleText([lesson("2026-10-04", "09:00", "10:20", "DS (L)")], Temporal.PlainDate.from("2026-10-04"));
     expect(text.split("\n")[0]).toBe("*Sunday* (*UPPER*)");
   });
 
@@ -147,7 +147,7 @@ describe("generateScheduleText", () => {
     at("2026-09-28T13:20:00+04:00");
     const { service } = createService();
     const holiday = { summary: "Holiday", start: { date: "2026-09-29" }, end: { date: "2026-09-30" } };
-    expect(service.generateScheduleText([holiday], new Date("2026-09-29T00:00:00+04:00"))).toBe(
+    expect(service.generateScheduleText([holiday], Temporal.PlainDate.from("2026-09-29"))).toBe(
       "*Tomorrow* (*UPPER*)\n\n📅 All day | Holiday",
     );
   });
@@ -155,7 +155,7 @@ describe("generateScheduleText", () => {
   test("formats midnight-adjacent times with a 24 hour clock", () => {
     at("2026-09-28T08:00:00+04:00");
     const { service } = createService();
-    const text = service.generateScheduleText([lesson("2026-09-28", "00:05", "13:45", "Late")], new Date("2026-09-28T00:00:00+04:00"));
+    const text = service.generateScheduleText([lesson("2026-09-28", "00:05", "13:45", "Late")], Temporal.PlainDate.from("2026-09-28"));
     expect(text).toContain("📅 00:05-13:45 | Late");
   });
 });

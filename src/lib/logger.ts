@@ -1,7 +1,7 @@
 import { Logger } from "@nestjs/common";
 import type { Message } from "../lib/whatsapp.ts";
 import client from "../modules/bot/client.js";
-import { groups } from "./constants.js";
+import { groups, TIME_ZONE } from "./constants.js";
 
 const logger = new Logger("LoggerService");
 
@@ -11,7 +11,7 @@ export async function sendLog(message: string, msg: Message | null) {
     name = (await msg.getChat()).name;
   }
   const icon = "🔵 ";
-  const time = `${new Date().toLocaleString()} | `;
+  const time = `${Temporal.Now.plainDateTimeISO(TIME_ZONE).toLocaleString()} | `;
   let textMessage = `${message} for ${name}`;
   logger.verbose(icon + textMessage);
   textMessage = `*${message}* for *${name}*`;
@@ -25,7 +25,7 @@ export async function sendErrorLog(message: string, msg: Message | null, error: 
     name = (await msg.getChat()).name;
   }
   const icon = "🔴 ";
-  const time = `${new Date().toLocaleString()} | `;
+  const time = `${Temporal.Now.plainDateTimeISO(TIME_ZONE).toLocaleString()} | `;
   let textMessage = `${message} for ${name}`;
   logger.error(icon + textMessage, error);
   textMessage = `*${message}* for *${name}*`;

@@ -16,8 +16,8 @@ vi.mock(import("baileys"), async (importOriginal) => ({
   downloadMediaMessage: vi.fn(),
 }));
 
-const NOW = new Date("2026-09-28T09:00:00+04:00");
-const NOW_S = NOW.getTime() / 1000;
+const NOW = "2026-09-28T09:00:00+04:00";
+const NOW_S = Temporal.Instant.from(NOW).epochMilliseconds / 1000;
 const BOT_PN = "994500000001@s.whatsapp.net";
 const BOT_LID = "900000000000001@lid";
 const GROUP = "120363000000000001@g.us";
@@ -120,7 +120,7 @@ async function deliver(client: Client, messages: WAMessage[], type: "notify" | "
 }
 
 beforeEach(async () => {
-  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.useFakeTimers({ toFake: ["Temporal"] });
   vi.setSystemTime(NOW);
   sockets = [];
   authDir = await mkdtemp(join(tmpdir(), "unibot-auth-"));
@@ -239,7 +239,7 @@ describe("connection lifecycle", () => {
 
   describe("after a dropped connection", () => {
     beforeEach(() => {
-      vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+      vi.useFakeTimers({ toFake: ["Temporal", "setTimeout", "clearTimeout"] });
       vi.setSystemTime(NOW);
     });
 

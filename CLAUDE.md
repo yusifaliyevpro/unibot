@@ -34,7 +34,8 @@ WhatsApp bot for a university class group (AzTU): schedules, lesson reminders, A
 - **Commands:** add new ones to `commands` in `utils.ts`; retired ones are commented out there, not deleted. Keep the help boxes (`src/lib/messages.ts`) and the AI command list (`ai.handler.ts`) in sync.
 - **Game:** messages are handled concurrently, so advancing or ending a game goes through a conditional `updateMany` (first message wins). `GameService` keeps active games in memory; restart the bot after editing `GameSession` rows by hand.
 - **Prisma:** after changing `schema.prisma`, run `pnpm prisma generate` before `pnpm check` (tsc runs before the build step regenerates the client).
-- **Time zone:** everything assumes `TZ=Asia/Baku` (validated in `src/lib/env.ts`).
+- **Time zone:** `TIME_ZONE` (`Asia/Baku`, in `constants.ts`) is passed explicitly to Temporal and every `@Cron`, so the process `TZ` doesn't matter. Tests run with `TZ=UTC` to catch code that relies on it.
+- **Dates:** use Temporal, not `Date`. Days are `Temporal.PlainDate` (`today()` in `utils.ts`), moments are `ZonedDateTime` in `TIME_ZONE` (`atTime()`, `toZoned()` for Google Calendar times).
 - **Deploy:** `cmd/deploy.sh` syncs `~/unibot` with `origin/main` and rebuilds the Docker image. The server `.env` must be in Docker `--env-file` format (no quotes, single-line JSON).
   - `.baileys_auth` only exists inside the container, so every deploy re-links the bot (new QR scan, new keys).
 - `.gitignore` uses CRLF line endings; source files use LF. Preserve them when editing.
@@ -52,4 +53,4 @@ WhatsApp bot for a university class group (AzTU): schedules, lesson reminders, A
 - `vitest.config.ts` sets fake values for every env variable, and `tests/setup.ts` disables `dotenv`, so the real `.env` is never read.
 - Mock only external boundaries (Baileys socket, Google Calendar, AI model, Prisma, Adobe, HTTP) and test real code otherwise. Use the `vi.mock(import("..."))` form. AI tests run the real `generateText` against `MockLanguageModelV4` from `ai/test`.
 - Assert on behaviour (what is sent, replied, reacted, stored), not on internal calls. Use `test.for` for input tables and short test names.
-- `restoreMocks` is on; use fake timers (`vi.useFakeTimers({ toFake: ["Date"] })` + `vi.setSystemTime`) for date dependent code.
+- `restoreMocks` is on; use fake timers (`vi.useFakeTimers({ toFake: ["Temporal"] })` + `vi.setSystemTime("...+04:00")`) for date dependent code.

@@ -12,7 +12,6 @@ describe("ENV", () => {
   test("exposes the validated variables", async () => {
     const { ENV } = await loadEnv();
     expect(ENV).toMatchObject({
-      TZ: "Asia/Baku",
       OPENROUTER_API_KEY: "test-openrouter-key",
       UNICHAT_GROUP_ID: "111111111111111111@g.us",
     });
@@ -22,11 +21,6 @@ describe("ENV", () => {
     vi.stubEnv("OPENROUTER_API_KEY", "   padded-key   ");
     const { ENV } = await loadEnv();
     expect(ENV.OPENROUTER_API_KEY).toBe("padded-key");
-  });
-
-  test("rejects a timezone other than Asia/Baku", async () => {
-    vi.stubEnv("TZ", "UTC");
-    await expect(loadEnv()).rejects.toThrow("Environment Variables");
   });
 
   test.for(["DATABASE_URL", "GOOGLE_TOKEN", "ADOBE_CLIENT_SECRET", "FINAL_EXAM_GROUP_ID"])("rejects a missing %s", async (name) => {

@@ -1,7 +1,7 @@
 import type { calendar_v3 } from "@googleapis/calendar";
 import { Logger } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { groups, SHIFT } from "../../../src/lib/constants.ts";
+import { groups, SHIFT, TIME_ZONE } from "../../../src/lib/constants.ts";
 import { userFriendlyMessages } from "../../../src/lib/logger_messages.ts";
 import type { Message } from "../../../src/lib/whatsapp.ts";
 import { BotService } from "../../../src/modules/bot/bot.service.ts";
@@ -72,7 +72,7 @@ beforeEach(() => {
   schedule = {
     sendSchedule: vi.fn(),
     sendDaySchedule: vi.fn(),
-    generateScheduleText: vi.fn((_events: unknown, day: Date) => `schedule for ${day.toLocaleDateString("sv-SE")}`),
+    generateScheduleText: vi.fn((_events: unknown, day: Temporal.PlainDate) => `schedule for ${day.toString()}`),
   };
   calendar = { getSchedule: vi.fn(async () => []), getNextLesson: vi.fn(async () => null) };
 
@@ -223,9 +223,15 @@ describe("message routing", () => {
       expect(handleAIGroupMention).toHaveBeenCalledWith(msg, uniChat, true, schedule);
     });
 
-    test("replying to the bot in a group asks the AI", async () => {
+    test("replying to the bot without a mention is ignored", async () => {
+      const schedulePost = fakeMessage({ body: "*Tomorrow* (*UPPER*)\n\n📅 09:00-10:20 | DS (L)", author: BOT_LID, fromMe: true });
+      await receive({ body: "thanks!", author: MATE, quoted: schedulePost });
+      expect(handleAIGroupMention).not.toHaveBeenCalled();
+    });
+
+    test("replying to the bot with a mention asks the AI", async () => {
       const botMessage = fakeMessage({ body: "earlier answer", author: BOT_LID, fromMe: true });
-      const { msg } = await receive({ body: "and why?", author: MATE, quoted: botMessage });
+      const { msg } = await receive({ body: "@900000000000001 and why?", author: MATE, mentionedIds: [BOT_LID], quoted: botMessage });
       expect(handleAIGroupMention).toHaveBeenCalledWith(msg, uniChat, true, schedule);
     });
 
@@ -457,15 +463,16 @@ describe("message routing", () => {
 });
 
 type Cron = "_1" | "_2" | "_3" | "_4" | "_5";
-const cronOf = (name: Cron) =>
-  (Reflect.getMetadata("SCHEDULE_CRON_OPTIONS", BotService.prototype[name as keyof BotService]) as { cronTime: string }).cronTime;
+const cronOptions = (name: Cron) =>
+  Reflect.getMetadata("SCHEDULE_CRON_OPTIONS", BotService.prototype[name as keyof BotService]) as { cronTime: string; timeZone?: string };
+const cronOf = (name: Cron) => cronOptions(name).cronTime;
 const lessonAt = (iso: string): calendar_v3.Schema$Event => ({ summary: "X", start: { dateTime: iso }, end: { dateTime: iso } });
 const postedTo = () => vi.mocked(client.getChatById).mock.calls.map(([jid]) => jid);
 const runCron = async (name: Cron) => await (service as unknown as Record<Cron, () => Promise<void>>)[name]();
 
 describe("cron jobs", () => {
   beforeEach(() => {
-    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.useFakeTimers({ toFake: ["Temporal"] });
     service = new BotService(
       game as unknown as GameService,
       schedule as unknown as ScheduleService,
@@ -479,6 +486,11 @@ describe("cron jobs", () => {
       SHIFT.scheduleCrons.afterLastSlot,
       ...SHIFT.doorReminders.map((r) => r.cron),
     ]);
+  });
+
+  test("run in the bot's time zone, whatever the process TZ is", () => {
+    const crons: Cron[] = ["_1", "_2", "_3", "_4", "_5"];
+    expect(crons.map((name) => cronOptions(name).timeZone)).toEqual(crons.map(() => TIME_ZONE));
   });
 
   describe("door reminders", () => {
@@ -511,8 +523,8 @@ describe("cron jobs", () => {
     const todayWithoutLastSlot = [lessonAt("2026-09-28T09:00:00+04:00"), lessonAt("2026-09-28T10:30:00+04:00")];
 
     function mockDay(today: calendar_v3.Schema$Event[]) {
-      calendar.getSchedule.mockImplementation(async (day: Date) =>
-        day.getDate() === new Date().getDate() ? today : [lessonAt("2099-01-01T09:00:00+04:00")],
+      calendar.getSchedule.mockImplementation(async (day: Temporal.PlainDate) =>
+        day.equals(Temporal.Now.plainDateISO("Asia/Baku")) ? today : [lessonAt("2099-01-01T09:00:00+04:00")],
       );
     }
 
@@ -531,33 +543,33 @@ describe("cron jobs", () => {
     });
 
     test("posts tomorrow's schedule after the 2nd lesson when there is no 3rd", async () => {
-      vi.setSystemTime(new Date("2026-09-28T11:50:00+04:00"));
+      vi.setSystemTime("2026-09-28T11:50:00+04:00");
       mockDay(todayWithoutLastSlot);
 
       await runCron("_1");
 
       expect(postedTo()).toEqual([groups.UNICHAT, groups.INFORMATION]);
-      expect(schedule.generateScheduleText).toHaveBeenCalledWith(expect.any(Array), expect.any(Date));
-      expect(schedule.generateScheduleText.mock.calls[0][1].toLocaleDateString("sv-SE")).toBe("2026-09-29");
+      expect(schedule.generateScheduleText).toHaveBeenCalledWith(expect.any(Array), expect.any(Temporal.PlainDate));
+      expect(schedule.generateScheduleText.mock.calls[0][1].toString()).toBe("2026-09-29");
       expect(pinned.map((pin) => pin.mock.calls)).toEqual([[[86400]], [[86400]]]);
     });
 
     test("waits for the 3rd lesson when there is one", async () => {
-      vi.setSystemTime(new Date("2026-09-28T11:50:00+04:00"));
+      vi.setSystemTime("2026-09-28T11:50:00+04:00");
       mockDay(todayWithLastSlot);
       await runCron("_1");
       expect(postedTo()).toEqual([]);
     });
 
     test("posts after the 3rd lesson", async () => {
-      vi.setSystemTime(new Date("2026-09-28T13:20:00+04:00"));
+      vi.setSystemTime("2026-09-28T13:20:00+04:00");
       mockDay(todayWithLastSlot);
       await runCron("_2");
       expect(postedTo()).toEqual([groups.UNICHAT, groups.INFORMATION]);
     });
 
     test("does not post twice on days without a 3rd lesson", async () => {
-      vi.setSystemTime(new Date("2026-09-28T13:20:00+04:00"));
+      vi.setSystemTime("2026-09-28T13:20:00+04:00");
       mockDay(todayWithoutLastSlot);
       await runCron("_2");
       expect(postedTo()).toEqual([]);
@@ -567,21 +579,21 @@ describe("cron jobs", () => {
       ["Friday's schedule on Thursdays", "2026-10-01", "2026-10-02"],
       ["Monday's schedule on Fridays", "2026-10-02", "2026-10-05"],
     ] as const)("posts %s", async ([, today, expected]) => {
-      vi.setSystemTime(new Date(`${today}T13:20:00+04:00`));
-      calendar.getSchedule.mockImplementation(async (day: Date) =>
-        day.toLocaleDateString("sv-SE") === today ? [lessonAt(`${today}T12:00:00+04:00`)] : [],
+      vi.setSystemTime(`${today}T13:20:00+04:00`);
+      calendar.getSchedule.mockImplementation(async (day: Temporal.PlainDate) =>
+        day.toString() === today ? [lessonAt(`${today}T12:00:00+04:00`)] : [],
       );
 
       await runCron("_2");
 
-      expect(schedule.generateScheduleText.mock.calls[0][1].toLocaleDateString("sv-SE")).toBe(expected);
+      expect(schedule.generateScheduleText.mock.calls[0][1].toString()).toBe(expected);
     });
 
     test.for([
       ["pinning", "pin"],
       ["sending", "send"],
     ] as const)("a %s failure in UniChat does not stop the information group post", async ([, failing]) => {
-      vi.setSystemTime(new Date("2026-09-28T11:50:00+04:00"));
+      vi.setSystemTime("2026-09-28T11:50:00+04:00");
       mockDay(todayWithoutLastSlot);
       const sentTo: string[] = [];
       vi.mocked(client.getChatById).mockImplementation(async (jid) => {
@@ -603,7 +615,7 @@ describe("cron jobs", () => {
     });
 
     test("skips pinning when the message was not sent", async () => {
-      vi.setSystemTime(new Date("2026-09-28T11:50:00+04:00"));
+      vi.setSystemTime("2026-09-28T11:50:00+04:00");
       mockDay(todayWithoutLastSlot);
       vi.mocked(client.getChatById).mockImplementation(async (jid) => {
         const chat = fakeChat({ id: jid, isGroup: true });
@@ -615,7 +627,7 @@ describe("cron jobs", () => {
     });
 
     test("contains calendar failures", async () => {
-      vi.setSystemTime(new Date("2026-09-28T11:50:00+04:00"));
+      vi.setSystemTime("2026-09-28T11:50:00+04:00");
       calendar.getSchedule.mockRejectedValueOnce(new Error("network"));
       await expect(runCron("_1")).resolves.toBeUndefined();
       expect(console.error).toHaveBeenCalled();

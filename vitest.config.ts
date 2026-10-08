@@ -9,7 +9,8 @@ export default defineConfig({
     unstubEnvs: true,
     unstubGlobals: true,
     env: {
-      TZ: "Asia/Baku",
+      // Not the bot's zone, so code relying on the process TZ fails
+      TZ: "UTC",
       DATABASE_URL: "postgres://test:test@localhost:5432/test",
       DIRECT_URL: "postgres://test:test@localhost:5432/test",
       GOOGLE_CLIENT_ID: "test-google-client-id",

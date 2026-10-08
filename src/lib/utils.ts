@@ -1,5 +1,4 @@
-import { getISOWeek } from "date-fns";
-import { UPPER_WEEKS } from "./constants.js";
+import { TIME_ZONE, UPPER_WEEKS } from "./constants.js";
 
 /** Whether `phrase` appears in `text` as whole words (not followed/preceded by a letter or digit) */
 export function hasPhrase(text: string, phrase: string) {
@@ -18,11 +17,6 @@ export function isSalam(message: string) {
 
 export function isLion(message: string) {
   return hasWord(message, ["şir", "alex", "alec", "aslan", "leo", "lion", "unibot"]);
-}
-
-export function tomorrow(day: Date) {
-  day.setDate(day.getDate() + 1);
-  return day;
 }
 
 export const commands = {
@@ -73,21 +67,29 @@ export function cleanPrompt(text: string) {
     .trim();
 }
 
+export function today() {
+  return Temporal.Now.plainDateISO(TIME_ZONE);
+}
+
+/** A Google Calendar `dateTime` (RFC 3339, with offset) in the bot's time zone */
+export function toZoned(dateTime: string) {
+  return Temporal.Instant.from(dateTime).toZonedDateTimeISO(TIME_ZONE);
+}
+
 /** The first lesson day after `day`, i.e. Monday after the week's last one */
-export function nextSchoolDay(day: Date, schoolDays: number) {
-  const next = tomorrow(new Date(day));
-  while (next.getDay() === 0 || next.getDay() > schoolDays) next.setDate(next.getDate() + 1);
+export function nextSchoolDay(day: Temporal.PlainDate, schoolDays: number) {
+  let next = day.add({ days: 1 });
+  while (next.dayOfWeek > schoolDays) next = next.add({ days: 1 });
   return next;
 }
 
-/** Copy of `day` with the time set to "HH:MM" */
-export function atTime(day: Date, time: string) {
-  const [hour, minute] = time.split(":").map(Number);
-  return new Date(new Date(day).setHours(hour, minute, 0, 0));
+/** `day` at "HH:MM" in the bot's time zone */
+export function atTime(day: Temporal.PlainDate, time: string) {
+  return day.toZonedDateTime({ timeZone: TIME_ZONE, plainTime: Temporal.PlainTime.from(time) });
 }
 
-/** Upper or lower week of `day`, by the parity of its Monday-started week number */
-export function weekType(day: Date, upperWeeks = UPPER_WEEKS): "upper" | "lower" {
-  const isOdd = getISOWeek(day) % 2 === 1;
+/** Upper or lower week of `day`, by the parity of its ISO (Monday-started) week number */
+export function weekType(day: Temporal.PlainDate, upperWeeks = UPPER_WEEKS): "upper" | "lower" {
+  const isOdd = day.weekOfYear! % 2 === 1;
   return isOdd === (upperWeeks === "odd") ? "upper" : "lower";
 }

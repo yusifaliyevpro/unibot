@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { UPPER_WEEKS } from "../../src/lib/constants.ts";
 import {
   atTime,
@@ -9,7 +9,8 @@ import {
   isLion,
   isSalam,
   nextSchoolDay,
-  tomorrow,
+  today,
+  toZoned,
   weekType,
 } from "../../src/lib/utils.ts";
 
@@ -36,14 +37,24 @@ describe("isLion", () => {
   });
 });
 
-describe("tomorrow", () => {
-  test("moves to the next day", () => {
-    expect(tomorrow(new Date(2026, 8, 26, 10, 30))).toEqual(new Date(2026, 8, 27, 10, 30));
-  });
+describe("today", () => {
+  afterEach(() => vi.useRealTimers());
 
-  test("rolls over month and year ends", () => {
-    expect(tomorrow(new Date(2026, 8, 30))).toEqual(new Date(2026, 9, 1));
-    expect(tomorrow(new Date(2026, 11, 31))).toEqual(new Date(2027, 0, 1));
+  test("is the Baku calendar day, not UTC", () => {
+    vi.useFakeTimers({ toFake: ["Temporal"] });
+    // Monday 00:30 in Baku is still Sunday in UTC
+    vi.setSystemTime("2026-10-05T00:30:00+04:00");
+    expect(today().toString()).toBe("2026-10-05");
+  });
+});
+
+describe("toZoned", () => {
+  test.for([
+    ["2026-09-28T09:00:00+04:00", "2026-09-28T09:00:00+04:00[Asia/Baku]"],
+    ["2026-09-28T05:00:00Z", "2026-09-28T09:00:00+04:00[Asia/Baku]"],
+    ["2026-09-27T22:30:00Z", "2026-09-28T02:30:00+04:00[Asia/Baku]"],
+  ])("%s is %s", ([dateTime, expected]) => {
+    expect(toZoned(dateTime).toString()).toBe(expected);
   });
 });
 
@@ -74,26 +85,13 @@ describe("nextSchoolDay", () => {
     ["Sunday", "2026-10-04", 5, "2026-10-05"],
     ["the last Friday of a year", "2026-12-25", 5, "2026-12-28"],
   ] as const)("after a %s", ([, day, schoolDays, expected]) => {
-    const next = nextSchoolDay(new Date(`${day}T12:00:00`), schoolDays);
-    expect(next.toLocaleDateString("sv-SE")).toBe(expected);
-  });
-
-  test("does not mutate the given date", () => {
-    const day = new Date(2026, 9, 2, 12);
-    nextSchoolDay(day, 5);
-    expect(day).toEqual(new Date(2026, 9, 2, 12));
+    expect(nextSchoolDay(Temporal.PlainDate.from(day), schoolDays).toString()).toBe(expected);
   });
 });
 
 describe("atTime", () => {
-  test("sets hours and minutes, zeroing seconds", () => {
-    expect(atTime(new Date(2026, 8, 28, 15, 45, 12, 500), "09:05")).toEqual(new Date(2026, 8, 28, 9, 5, 0, 0));
-  });
-
-  test("does not mutate the given date", () => {
-    const day = new Date(2026, 8, 28, 15, 45);
-    atTime(day, "13:20");
-    expect(day).toEqual(new Date(2026, 8, 28, 15, 45));
+  test("is the day at that time in Baku", () => {
+    expect(atTime(Temporal.PlainDate.from("2026-09-28"), "09:05").toString()).toBe("2026-09-28T09:05:00+04:00[Asia/Baku]");
   });
 });
 
@@ -174,15 +172,11 @@ describe("weekType", () => {
     ["a Monday with odd upper weeks", "2026-09-28", "odd", "lower"],
     ["the next Monday with odd upper weeks", "2026-10-05", "odd", "upper"],
   ] as const)("%s (%s) with %s upper weeks is %s", ([, day, upperWeeks, expected]) => {
-    expect(weekType(new Date(`${day}T10:00:00`), upperWeeks)).toBe(expected);
-  });
-
-  test("uses the Baku calendar day, not UTC", () => {
-    // Monday 00:30 in Baku is still Sunday in UTC
-    expect(weekType(new Date("2026-10-05T00:30:00+04:00"), "even")).toBe("lower");
+    expect(weekType(Temporal.PlainDate.from(day), upperWeeks)).toBe(expected);
   });
 
   test("defaults to the semester's UPPER_WEEKS", () => {
-    expect(weekType(new Date("2026-09-28T10:00:00"))).toBe(weekType(new Date("2026-09-28T10:00:00"), UPPER_WEEKS));
+    const day = Temporal.PlainDate.from("2026-09-28");
+    expect(weekType(day)).toBe(weekType(day, UPPER_WEEKS));
   });
 });

@@ -19,6 +19,9 @@ export const groups = {
 export const BotOwnerID = getEnvVar("BOT_OWNER_PHONE_NUMBER");
 export const UniBotID = getEnvVar("UNIBOT_PHONE_NUMBER");
 
+/** The bot's time zone, passed explicitly to Temporal and the crons, so the process TZ doesn't matter */
+export const TIME_ZONE = "Asia/Baku";
+
 type Time = `${number}:${number}`;
 type Lesson = { start: Time; end: Time };
 

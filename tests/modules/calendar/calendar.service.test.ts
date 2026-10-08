@@ -20,11 +20,12 @@ const CALENDAR_ID = "6718afcc2fb6b3439a0846b80cb446c032144b1cb90101aee6472ce5f09
 const list = () => vi.mocked(calendar({ version: "v3" }).events.list as unknown as (...args: unknown[]) => Promise<unknown>);
 const respond = (items?: calendar_v3.Schema$Event[]) => list().mockResolvedValueOnce({ data: { items } });
 
+const instant = (iso: string) => Temporal.Instant.from(iso).toString();
 const lesson = (summary?: string): calendar_v3.Schema$Event => ({ summary, start: { dateTime: "2026-09-28T09:00:00+04:00" } });
 
 beforeEach(() => {
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date("2026-09-28T08:45:00+04:00"));
+  vi.useFakeTimers({ toFake: ["Temporal"] });
+  vi.setSystemTime("2026-09-28T08:45:00+04:00");
 });
 
 afterEach(() => {
@@ -54,22 +55,20 @@ describe("getSchedule", () => {
   test("queries the lessons window of the shift on the given day", async () => {
     const events = [{ summary: "DS (L) | Şəbnəm | 6-606" }];
     respond(events);
-    const day = new Date("2026-10-06T19:30:00+04:00");
 
-    await expect(new GoogleCalendarService().getSchedule(day)).resolves.toEqual(events);
+    await expect(new GoogleCalendarService().getSchedule(Temporal.PlainDate.from("2026-10-06"))).resolves.toEqual(events);
     expect(list()).toHaveBeenCalledWith({
       calendarId: CALENDAR_ID,
-      timeMin: new Date("2026-10-06T09:00:00+04:00").toISOString(),
-      timeMax: new Date("2026-10-06T13:20:00+04:00").toISOString(),
+      timeMin: instant("2026-10-06T09:00:00+04:00"),
+      timeMax: instant("2026-10-06T13:20:00+04:00"),
       singleEvents: true,
       orderBy: "startTime",
     });
-    expect(day).toEqual(new Date("2026-10-06T19:30:00+04:00"));
   });
 
   test("returns an empty list when there are no events", async () => {
     respond(undefined);
-    await expect(new GoogleCalendarService().getSchedule(new Date())).resolves.toEqual([]);
+    await expect(new GoogleCalendarService().getSchedule(Temporal.PlainDate.from("2026-09-28"))).resolves.toEqual([]);
   });
 });
 
@@ -79,8 +78,8 @@ describe("getNextLesson", () => {
     await new GoogleCalendarService().getNextLesson(10, 30);
     expect(list()).toHaveBeenCalledWith(
       expect.objectContaining({
-        timeMin: new Date("2026-09-28T10:30:00+04:00").toISOString(),
-        timeMax: new Date("2026-09-28T11:50:00+04:00").toISOString(),
+        timeMin: instant("2026-09-28T10:30:00+04:00"),
+        timeMax: instant("2026-09-28T11:50:00+04:00"),
       }),
     );
   });

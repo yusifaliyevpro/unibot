@@ -3,10 +3,10 @@ import type { OnModuleInit } from "@nestjs/common";
 import { Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import * as QRCode from "qrcode";
-import { groups, SCHOOL_DAYS, SHIFT, BotOwnerID, UniBotID } from "../../lib/constants.js";
+import { groups, SCHOOL_DAYS, SHIFT, BotOwnerID, UniBotID, TIME_ZONE } from "../../lib/constants.js";
 import { sendErrorLog } from "../../lib/logger.js";
 import { LogMessages, userFriendlyMessages } from "../../lib/logger_messages.js";
-import { isSalam, isLion, getCommand, atTime, nextSchoolDay, cleanPrompt } from "../../lib/utils.js";
+import { isSalam, isLion, getCommand, atTime, nextSchoolDay, cleanPrompt, today, toZoned } from "../../lib/utils.js";
 import { type GroupChat } from "../../lib/whatsapp.ts";
 import { GoogleCalendarService } from "../calendar/calendar.service.js";
 import { GameService } from "../game/game.service.js";
@@ -54,7 +54,8 @@ export class BotService implements OnModuleInit {
           const commands = getCommand(body);
           const chat = await msg.getChat();
           const quotedMessage = msg.hasQuotedMsg ? await msg.getQuotedMessage() : null;
-          const isUniBotMentioned = [...msg.mentionedIds, quotedMessage?.author].some((mention) => mention === uniBotId);
+          // Only an @mention counts, so replies to the bot's posts (schedules, reminders...) don't wake the AI
+          const isUniBotMentioned = msg.mentionedIds.includes(uniBotId);
           const isAdmin = chat.isGroup && (chat as GroupChat).participants.some((p) => p.isAdmin && p.id._serialized === msg.author);
           const isBotOwner = (msg.author ?? msg.from) === botOwnerId;
 
@@ -168,11 +169,14 @@ export class BotService implements OnModuleInit {
 
   private async sendDailySchedule(time: "beforeLastSlot" | "afterLastSlot") {
     try {
-      const now = new Date();
-      const todayEvents = await this.calendarService.getSchedule(now);
+      const day = today();
+      const todayEvents = await this.calendarService.getSchedule(day);
       const hasLastSlotLesson = todayEvents.some((event) => {
-        const startTime = new Date(event.start?.dateTime || event.start?.date || "");
-        return startTime >= atTime(now, SHIFT.lastSlotStart) && startTime < atTime(now, SHIFT.end);
+        // All-day events (no dateTime) aren't lessons
+        if (!event.start?.dateTime) return false;
+        const start = toZoned(event.start.dateTime);
+        const { compare } = Temporal.ZonedDateTime;
+        return compare(start, atTime(day, SHIFT.lastSlotStart)) >= 0 && compare(start, atTime(day, SHIFT.end)) < 0;
       });
 
       // Post right after the day's last lesson
@@ -180,7 +184,7 @@ export class BotService implements OnModuleInit {
       if (time === "afterLastSlot" && !hasLastSlotLesson) return;
 
       // On the last lesson day of the week this is Monday's schedule
-      const targetDay = nextSchoolDay(new Date(), SCHOOL_DAYS);
+      const targetDay = nextSchoolDay(day, SCHOOL_DAYS);
 
       const lessons = await this.calendarService.getSchedule(targetDay);
       const scheduleText = this.scheduleService.generateScheduleText(lessons, targetDay);
@@ -200,11 +204,11 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  @Cron(SHIFT.scheduleCrons.beforeLastSlot) private async _1() {
+  @Cron(SHIFT.scheduleCrons.beforeLastSlot, { timeZone: TIME_ZONE }) private async _1() {
     await this.sendDailySchedule("beforeLastSlot");
   }
 
-  @Cron(SHIFT.scheduleCrons.afterLastSlot) private async _2() {
+  @Cron(SHIFT.scheduleCrons.afterLastSlot, { timeZone: TIME_ZONE }) private async _2() {
     await this.sendDailySchedule("afterLastSlot");
   }
 
@@ -219,13 +223,13 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  @Cron(SHIFT.doorReminders[0].cron) private async _3() {
+  @Cron(SHIFT.doorReminders[0].cron, { timeZone: TIME_ZONE }) private async _3() {
     await this.sendDoorNumber(SHIFT.doorReminders[0].lesson);
   }
-  @Cron(SHIFT.doorReminders[1].cron) private async _4() {
+  @Cron(SHIFT.doorReminders[1].cron, { timeZone: TIME_ZONE }) private async _4() {
     await this.sendDoorNumber(SHIFT.doorReminders[1].lesson);
   }
-  @Cron(SHIFT.doorReminders[2].cron) private async _5() {
+  @Cron(SHIFT.doorReminders[2].cron, { timeZone: TIME_ZONE }) private async _5() {
     await this.sendDoorNumber(SHIFT.doorReminders[2].lesson);
   }
 }

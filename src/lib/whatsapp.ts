@@ -371,7 +371,7 @@ export class Client extends EventEmitter<ClientEvents> {
 
       if (connection === "open") {
         this.reconnectAttempts = 0;
-        this.onlineSince = Math.floor(Date.now() / 1000);
+        this.onlineSince = Math.floor(Temporal.Now.instant().epochMilliseconds / 1000);
         this.info = { wid: { _serialized: jidNormalizedUser(sock.user!.lid ?? sock.user!.id) }, pushname: sock.user?.name ?? "" };
         this.emit("authenticated");
         if (!this.isReady) {

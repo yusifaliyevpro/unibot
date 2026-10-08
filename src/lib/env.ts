@@ -4,7 +4,6 @@ import { z } from "zod";
 dotenv.config({ path: ".env", quiet: true });
 
 const EnvSchema = z.object({
-  TZ: z.literal("Asia/Baku"),
   DATABASE_URL: z.string().trim().min(3),
   DIRECT_URL: z.string().trim().min(3),
   GOOGLE_CLIENT_ID: z.string().trim().min(3),

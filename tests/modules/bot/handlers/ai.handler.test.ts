@@ -328,8 +328,8 @@ describe("schedule requests", () => {
   });
 
   test("offers the schedule tools and today's date in class groups", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-09-28T10:00:00+04:00"));
+    vi.useFakeTimers({ toFake: ["Temporal"] });
+    vi.setSystemTime("2026-09-28T10:00:00+04:00");
     aiResponds(reply("ok"));
     const { chat, msg } = setup();
 

@@ -47,9 +47,6 @@ importers:
       baileys:
         specifier: 7.0.0-rc14
         version: 7.0.0-rc14(sharp@0.35.5(@types/node@26.6.4))(supports-color@8.1.1)
-      date-fns:
-        specifier: 4.4.0
-        version: 4.4.0
       dotenv:
         specifier: 18.0.6
         version: 18.0.6
@@ -2039,9 +2036,6 @@ packages:
   data-uri-to-buffer@4.0.1:
     resolution: {integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==}
     engines: {node: '>= 12'}
-
-  date-fns@4.4.0:
-    resolution: {integrity: sha512-+1UMbeh68lH1SegH83CGWwpb6OHHbpSgr3+s5Eww5M4CAgswBpoWS0AjTOfEJ33HiYKz1hdj/KTFprzXHmq/6w==}
 
   date-format@4.0.14:
     resolution: {integrity: sha512-39BOQLs9ZjKh0/patS9nrT8wc3ioX3/eA/zgbKNopnF2wCqJEoxywwwElATYvRsXdnOxA/OQeQoFZ3rFjVajhg==}
@@ -5524,8 +5518,6 @@ snapshots:
       d3-array: 3.2.4
 
   data-uri-to-buffer@4.0.1: {}
-
-  date-fns@4.4.0: {}
 
   date-format@4.0.14: {}
 

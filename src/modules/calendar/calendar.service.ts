@@ -1,8 +1,8 @@
 import { type calendar_v3, auth, calendar } from "@googleapis/calendar";
 import { Injectable } from "@nestjs/common";
 import * as dotenv from "dotenv";
-import { SHIFT } from "../../lib/constants.js";
-import { atTime } from "../../lib/utils.js";
+import { SHIFT, TIME_ZONE } from "../../lib/constants.js";
+import { atTime, today } from "../../lib/utils.js";
 
 dotenv.config({ path: ".env", quiet: true });
 
@@ -27,14 +27,14 @@ export class GoogleCalendarService {
     this.calendar = calendar({ version: "v3", auth: this.auth });
   }
 
-  async getSchedule(day: Date) {
+  async getSchedule(day: Temporal.PlainDate) {
     const startOfDay = atTime(day, SHIFT.start);
     const endOfDay = atTime(day, SHIFT.end);
 
     const response = await this.calendar.events.list({
       calendarId: "6718afcc2fb6b3439a0846b80cb446c032144b1cb90101aee6472ce5f0997ff5@group.calendar.google.com",
-      timeMin: startOfDay.toISOString(),
-      timeMax: endOfDay.toISOString(),
+      timeMin: startOfDay.toInstant().toString(),
+      timeMax: endOfDay.toInstant().toString(),
       singleEvents: true,
       orderBy: "startTime",
     });
@@ -44,14 +44,13 @@ export class GoogleCalendarService {
   }
 
   async getNextLesson(hour: number, minute: number): Promise<string | null> {
-    const day = new Date();
-    const startDay = new Date(day.setHours(hour, minute, 0, 0));
-    const endDay = new Date(startDay.getTime() + 80 * 60000);
+    const startDay = today().toZonedDateTime({ timeZone: TIME_ZONE, plainTime: { hour, minute } });
+    const endDay = startDay.add({ minutes: 80 });
 
     const response = await this.calendar.events.list({
       calendarId: "6718afcc2fb6b3439a0846b80cb446c032144b1cb90101aee6472ce5f0997ff5@group.calendar.google.com",
-      timeMin: startDay.toISOString(),
-      timeMax: endDay.toISOString(),
+      timeMin: startDay.toInstant().toString(),
+      timeMax: endDay.toInstant().toString(),
       singleEvents: true,
       orderBy: "startTime",
     });

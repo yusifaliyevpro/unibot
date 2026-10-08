@@ -4,7 +4,7 @@ import { z } from "zod";
 import { ENV } from "../../../lib/env.js";
 import { sendErrorLog, sendLog } from "../../../lib/logger.js";
 import { LogMessages, userFriendlyMessages } from "../../../lib/logger_messages.js";
-import { cleanPrompt } from "../../../lib/utils.js";
+import { cleanPrompt, today } from "../../../lib/utils.js";
 import type { Chat, Message } from "../../../lib/whatsapp.ts";
 import type { ScheduleService } from "../../schedule/schedule.service.ts";
 
@@ -104,7 +104,7 @@ const scheduleTools = (chat: Chat, scheduleService: ScheduleService, onError: (e
 };
 
 const scheduleToolsPrompt = () => `
-Today is ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.
+Today is ${today().toLocaleString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.
 When the user asks for a class schedule (today, tomorrow, a weekday, the upper or lower week), don't answer with text: call the matching tool, it sends the schedule to the chat by itself.
 `;
 
