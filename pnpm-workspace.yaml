@@ -11,13 +11,11 @@ allowBuilds:
   baileys: true
   protobufjs: true
 minimumReleaseAgeExclude:
-  - "@nestjs/common@12.1.0"
   - "@nestjs/config@12.0.1"
-  - "@nestjs/core@12.1.0"
-  - "@nestjs/platform-express@12.1.0"
   - "@nestjs/schematics@12.0.5"
   - dotenv@18.0.3
-  - "@ai-sdk/gateway@4.0.94"
-  - "@ai-sdk/provider-utils@5.0.49"
+  - "@ai-sdk/gateway@4.0.108"
+  - "@ai-sdk/provider-utils@5.0.57"
   - "@types/node@24.19.0"
-  - ai@7.0.116
+  - ai@7.0.133
+  - "@ai-sdk/provider@4.0.25"
