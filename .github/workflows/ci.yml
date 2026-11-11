@@ -9,6 +9,7 @@ on:
 
 env:
   DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
+  DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
 
 jobs:
   quality:
