@@ -28,14 +28,14 @@
     "@adobe/pdfservices-node-sdk": "4.1.0",
     "@googleapis/calendar": "20.2.0",
     "@neondatabase/serverless": "1.2.1",
-    "@nestjs/common": "12.5.1",
+    "@nestjs/common": "12.6.0",
     "@nestjs/config": "12.1.1",
-    "@nestjs/core": "12.5.1",
-    "@nestjs/platform-express": "12.5.1",
+    "@nestjs/core": "12.6.0",
+    "@nestjs/platform-express": "12.6.0",
     "@nestjs/schedule": "12.0.4",
     "@openrouter/ai-sdk-provider": "3.1.0",
     "@prisma/adapter-neon": "7.9.1",
-    "ai": "7.0.173",
+    "ai": "7.0.179",
     "axios": "1.21.1",
     "baileys": "7.0.0-rc14",
     "dotenv": "18.0.10",
@@ -50,14 +50,14 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@nestjs/cli": "12.0.13",
-    "@nestjs/schematics": "12.0.13",
+    "@nestjs/cli": "12.0.15",
+    "@nestjs/schematics": "12.0.16",
     "@prisma/client": "7.9.1",
     "@swc/cli": "0.8.2",
     "@swc/core": "1.16.22",
     "@types/node": "26.6.6",
     "@types/qrcode": "1.5.6",
-    "greenly": "1.2.0",
+    "greenly": "1.4.0",
     "oxfmt": "0.79.0",
     "oxlint": "1.94.0",
     "prisma": "7.9.1",
@@ -66,7 +66,7 @@
     "ts-node": "10.9.2",
     "tsconfig-paths": "4.2.0",
     "typescript": "6.0.3",
-    "vitest": "5.1.0"
+    "vitest": "5.1.1"
   },
   "devEngines": {
     "packageManager": {
