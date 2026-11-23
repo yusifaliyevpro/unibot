@@ -43,7 +43,7 @@ WhatsApp bot for a university class group (AzTU): schedules, lesson reminders, A
 ### Decided, not issues (don't raise again)
 
 - **Group caches don't go stale across reconnects.** `groupCache`/`participantsCache` in `whatsapp.ts` are cleared by `groups.update` / `group-participants.update`, and WhatsApp delivers changes missed while disconnected as queued `offline` notifications on reconnect, which Baileys turns into the same events. Don't clear them on reconnect. They're needed (Baileys' `cachedGroupMetadata` avoids a metadata query per group send) and small (one entry per active group).
-- **No `--restart` policy in `deploy.sh`:** a broken deploy would restart forever.
+- **`--restart unless-stopped` in `deploy.sh`:** so the bot comes back after Docker daemon restarts (`apt upgrade`, reboot). A broken deploy restart-loops with Docker's backoff (up to 1 min) and shows as `Restarting` in `docker ps`. To recover a stopped bot without re-linking, `docker start unibot-container` (keeps `.baileys_auth`); redeploying creates a new container.
 - **A failing `ready` handler crashes the bot on purpose** (e.g. `getChatById(UNICHAT)`), so the failure is visible.
 - **`uniMates` is fixed at startup:** UniChat membership rarely changes and the owner restarts the bot when it does.
 

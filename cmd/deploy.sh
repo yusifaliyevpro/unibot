@@ -28,7 +28,8 @@ main() {
   docker rm "$CONTAINER_NAME" 2>/dev/null || true
 
   echo "🚀 Running the new Docker container..."
-  docker run -d --name "$CONTAINER_NAME" -p "$PORT:$PORT" --env-file "$ENV_FILE" "$IMAGE_NAME:latest"
+  # Comes back after Docker daemon restarts (apt upgrade, reboot); a manual stop keeps it down
+  docker run -d --restart unless-stopped --name "$CONTAINER_NAME" -p "$PORT:$PORT" --env-file "$ENV_FILE" "$IMAGE_NAME:latest"
 
   echo "🧹 Cleaning up dangling images only (keeps cache)..."
   docker image prune -f --filter "dangling=true"
