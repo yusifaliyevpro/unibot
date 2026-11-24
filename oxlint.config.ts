@@ -5,7 +5,7 @@ export default defineConfig({
   categories: {
     suspicious: "warn",
   },
-  ignorePatterns: ["dist", "deprecated"],
+  ignorePatterns: ["dist", "deprecated", "migrations", "src/prisma/contract.d.ts"],
   rules: {
     eqeqeq: "warn",
     "no-throw-literal": "warn",
