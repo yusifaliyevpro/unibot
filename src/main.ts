@@ -12,6 +12,8 @@ if (typeof globalThis.crypto === "undefined") {
 async function bootstrap() {
   const logger = new Logger("NestApplication");
   const app = await NestFactory.create(AppModule);
+  // Runs onModuleDestroy on SIGTERM (docker stop), which closes the database pool
+  app.enableShutdownHooks();
   const port = process.env.PORT || 3000;
 
   await app.listen(port, () => {
