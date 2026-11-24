@@ -37,10 +37,10 @@ This project requires domain knowledge to set up and run. If you are not familia
    cp .env.example .env
    ```
 
-4. Push the database schema:
+4. Apply the migrations (on an empty database this creates the tables):
 
    ```bash
-   pnpm db:push
+   pnpm prisma db migrate
    ```
 
 5. Run in development mode:
