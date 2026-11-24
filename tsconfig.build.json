@@ -9,6 +9,7 @@
     "dist",
     "cmd",
     "deprecated",
+    "migrations",
     "**/*spec.ts",
     "prisma.config.ts",
     "oxlint.config.ts",
