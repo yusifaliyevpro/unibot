@@ -4,11 +4,12 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExcludePrune: true
 trustPolicy: "no-downgrade"
 trustPolicyExcludePrune: true
+trustPolicyExclude:
+  - "@vercel/detect-agent@1.2.7"
 allowBuilds:
-  "@prisma/engines": true
   "@swc/core": true
-  prisma: true
   baileys: true
   protobufjs: true
+  esbuild: false
 minimumReleaseAgeExclude:
   - dotenv@18.0.3

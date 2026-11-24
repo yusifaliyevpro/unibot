@@ -1,6 +1,6 @@
 import { vi } from "vitest";
-import type { GameSession } from "../src/generated/prisma/client.ts";
 import type { Chat, Contact, GroupChat, GroupParticipant, Message, MessageMedia, MessageTypes } from "../src/lib/whatsapp.ts";
+import type { GameSession } from "../src/prisma/game-sessions.ts";
 
 // Lightweight stand-ins for wrapper objects, used by handler/service tests. The wrapper itself is tested against a fake socket.
 
@@ -93,45 +93,37 @@ export type FakeMessage = ReturnType<typeof fakeMessage>;
 const matches = (session: GameSession, where: Partial<GameSession> = {}) =>
   Object.entries(where).every(([key, value]) => session[key as keyof GameSession] === value);
 
-/** Applies a Prisma `data` object, including `{ increment }` updates */
-function apply(session: GameSession, data: Record<string, unknown>) {
-  for (const [key, value] of Object.entries(data)) {
-    const field = key as keyof GameSession;
-    if (value && typeof value === "object" && "increment" in value) {
-      (session[field] as number) += (value as { increment: number }).increment;
-    } else {
-      (session as Record<string, unknown>)[field] = value;
-    }
-  }
-}
-
-/** In-memory stand-in for the `gameSession` Prisma delegate (only the calls GameService makes) */
+/** In-memory stand-in for the query helpers `PrismaService` exposes; rows are copies, like real query results */
 export function fakePrisma() {
   const sessions: GameSession[] = [];
 
-  const gameSession = {
-    // Copies, like real Prisma rows: later updates must not change rows the caller already holds
-    findFirst: vi.fn(async ({ where }: { where: Partial<GameSession> }) => {
-      const session = sessions.find((s) => matches(s, where));
+  const claim = (where: Partial<GameSession>, data: Partial<GameSession>) => {
+    const matched = sessions.filter((s) => matches(s, where));
+    for (const session of matched) Object.assign(session, data);
+    return matched.length > 0;
+  };
+
+  return {
+    sessions,
+    findActiveSession: vi.fn(async (chatId: string) => {
+      const session = sessions.find((s) => matches(s, { chatId, isActive: true }));
       return session ? { ...session } : null;
     }),
-    findMany: vi.fn(async ({ where }: { where: Partial<GameSession> }) => sessions.filter((s) => matches(s, where)).map((s) => ({ ...s }))),
-    create: vi.fn(async ({ data }: { data: Omit<GameSession, "id" | "numberOfCorrectAnswers"> }) => {
+    listActiveChatIds: vi.fn(async () => sessions.filter((s) => s.isActive).map((s) => s.chatId)),
+    createGameSession: vi.fn(async (data: Omit<GameSession, "id" | "numberOfCorrectAnswers">) => {
       const session: GameSession = { id: `session-${sessions.length + 1}`, numberOfCorrectAnswers: 0, ...data };
       sessions.push(session);
       return { ...session };
     }),
-    update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
-      const session = sessions.find((s) => s.id === where.id);
-      if (!session) throw new Error(`No session ${where.id}`);
-      apply(session, data);
-      return { ...session };
-    }),
-    updateMany: vi.fn(async ({ where, data }: { where: Partial<GameSession>; data: Record<string, unknown> }) => {
-      const matched = sessions.filter((s) => matches(s, where));
-      for (const session of matched) apply(session, data);
-      return { count: matched.length };
-    }),
+    claimQuestion: vi.fn(async (session: GameSession, isCorrect: boolean) =>
+      claim(
+        { id: session.id, isActive: true, lastQuestion: session.lastQuestion },
+        {
+          lastQuestion: session.lastQuestion + 1,
+          ...(isCorrect && { numberOfCorrectAnswers: session.numberOfCorrectAnswers + 1 }),
+        },
+      ),
+    ),
+    endGameSession: vi.fn(async (id: string, lastQuestion: number) => claim({ id, isActive: true, lastQuestion }, { isActive: false })),
   };
-  return { sessions, gameSession };
 }

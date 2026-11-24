@@ -1,11 +1,17 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaNeon } from "@prisma/adapter-neon";
-import { PrismaClient } from "./generated/prisma/client.js";
+import { Injectable, type OnModuleDestroy } from "@nestjs/common";
+import { db } from "./prisma/db.ts";
+import { claimQuestion, createGameSession, endGameSession, findActiveSession, listActiveChatIds } from "./prisma/game-sessions.ts";
 
 @Injectable()
-export class PrismaService extends PrismaClient {
-  constructor() {
-    const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
-    super({ adapter });
+export class PrismaService implements OnModuleDestroy {
+  readonly db = db;
+  readonly findActiveSession = findActiveSession;
+  readonly listActiveChatIds = listActiveChatIds;
+  readonly createGameSession = createGameSession;
+  readonly claimQuestion = claimQuestion;
+  readonly endGameSession = endGameSession;
+
+  async onModuleDestroy() {
+    await this.db.close();
   }
 }

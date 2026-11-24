@@ -190,7 +190,7 @@ describe("handleGameStart", () => {
   test("reports failures", async () => {
     const { service, prisma, chat } = setup();
     prisma.sessions.length = 0;
-    prisma.gameSession.create.mockRejectedValueOnce(new Error("db down"));
+    prisma.createGameSession.mockRejectedValueOnce(new Error("db down"));
     const msg = fakeMessage({ body: "/start 7", from: PLAYER, chat });
     await service.handleGameStart(msg, chat);
     expect(msg.react).toHaveBeenCalledWith("❌");
@@ -209,12 +209,12 @@ describe("hasActiveSession", () => {
     const { service, prisma } = setup();
     await Promise.all([service.hasActiveSession(PLAYER), service.hasActiveSession(PLAYER)]);
     await service.hasActiveSession("999999999999999@lid");
-    expect(prisma.gameSession.findMany).toHaveBeenCalledOnce();
+    expect(prisma.listActiveChatIds).toHaveBeenCalledOnce();
   });
 
   test("retries the query after a failure", async () => {
     const { service, prisma } = setup();
-    prisma.gameSession.findMany.mockRejectedValueOnce(new Error("db down"));
+    prisma.listActiveChatIds.mockRejectedValueOnce(new Error("db down"));
     await expect(service.hasActiveSession(PLAYER)).rejects.toThrow("db down");
     await expect(service.hasActiveSession(PLAYER)).resolves.toBe(true);
   });
@@ -469,7 +469,7 @@ describe("handleGame", () => {
 
   test("reports failures", async () => {
     const { service, prisma, chat, answer } = setup();
-    prisma.gameSession.findFirst.mockRejectedValueOnce(new Error("db down"));
+    prisma.findActiveSession.mockRejectedValueOnce(new Error("db down"));
     const msg = answer("Bakı");
     await service.handleGame(msg, chat, false);
     expect(msg.react).toHaveBeenCalledWith("❌");

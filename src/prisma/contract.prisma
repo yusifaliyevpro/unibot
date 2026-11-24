@@ -1,0 +1,12 @@
+// use prisma-8
+
+model GameSession {
+  id                     String  @id @onCreate(cuid(2))
+  /// Group id (@g.us) or user LID (@lid) the game is played in, not a phone number
+  chatId                 String
+  packageID              Int
+  lastQuestion           Int
+  packageIndex           Int
+  isActive               Boolean
+  numberOfCorrectAnswers Int     @default(0)
+}

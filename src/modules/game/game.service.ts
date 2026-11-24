@@ -3,7 +3,6 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { gamePackages } from "../../3sual.js";
-import type { GameSession, Prisma } from "../../generated/prisma/client.ts";
 import { ENV } from "../../lib/env.js";
 import { sendErrorLog, sendLog } from "../../lib/logger.ts";
 import { gameMsgs, LogMessages } from "../../lib/logger_messages.ts";
@@ -11,6 +10,7 @@ import { getCommand, hasPhrase } from "../../lib/utils.js";
 import { type Chat, type GroupChat, type Message, MessageMedia } from "../../lib/whatsapp.ts";
 import client from "../../modules/bot/client.js";
 import { PrismaService } from "../../prisma.service.ts";
+import type { GameSession } from "../../prisma/game-sessions.ts";
 
 @Injectable()
 export class GameService {
@@ -21,7 +21,7 @@ export class GameService {
       const { isQuit, isRight, isPass } = getCommand(msg.body.trim().toLowerCase());
       const sendStateTyping = async () => await chat.sendStateTyping();
 
-      const session = await this.GameSession({ isActive: true, chatId: msg.from });
+      const session = await this.prisma.findActiveSession(msg.from);
       if (!session) return (await this.activeChatIds()).delete(msg.from);
       const gamePackage = gamePackages[session.packageIndex];
       const questionCount = gamePackage.questions.length;
@@ -30,13 +30,7 @@ export class GameService {
       const sendAnswer = async (to: Message = msg) => await to.reply(this.answerText(question), undefined, { linkPreview: false });
 
       // Messages are handled concurrently, so only the first one to move past the question may act on it
-      const claimQuestion = async (isCorrect: boolean) => {
-        const { count } = await this.prisma.gameSession.updateMany({
-          where: { id: session.id, isActive: true, lastQuestion: session.lastQuestion },
-          data: { lastQuestion: { increment: 1 }, ...(isCorrect && { numberOfCorrectAnswers: { increment: 1 } }) },
-        });
-        return count > 0;
-      };
+      const claimQuestion = (isCorrect: boolean) => this.prisma.claimQuestion(session, isCorrect);
 
       // Sends the next question, or finishes the game after the last one
       const next = async (isCorrect: boolean) => {
@@ -143,12 +137,9 @@ export class GameService {
 
   /** Ends the game unless another message already moved it past `lastQuestion` */
   private async endGame(session: GameSession, lastQuestion = session.lastQuestion) {
-    const { count } = await this.prisma.gameSession.updateMany({
-      where: { id: session.id, isActive: true, lastQuestion },
-      data: { isActive: false },
-    });
-    if (count) (await this.activeChatIds()).delete(session.chatId);
-    return count > 0;
+    const ended = await this.prisma.endGameSession(session.id, lastQuestion);
+    if (ended) (await this.activeChatIds()).delete(session.chatId);
+    return ended;
   }
 
   private async sendStats(chat: Chat, msg: Message, session: GameSession, questionCount: number, correctAnswers: number) {
@@ -178,19 +169,13 @@ export class GameService {
     );
   }
 
-  private async GameSession(GameSessionWhereUniqueInput: Prisma.GameSessionWhereInput): Promise<GameSession | null> {
-    return await this.prisma.gameSession.findFirst({
-      where: GameSessionWhereUniqueInput,
-    });
-  }
-
   /** Chats with an active game, loaded once and then kept up to date here instead of querying on every message */
   private activeChats?: Promise<Set<string>>;
 
   private async activeChatIds() {
-    this.activeChats ??= this.prisma.gameSession
-      .findMany({ where: { isActive: true }, select: { chatId: true } })
-      .then((sessions) => new Set(sessions.map((s) => s.chatId)))
+    this.activeChats ??= this.prisma
+      .listActiveChatIds()
+      .then((chatIds) => new Set(chatIds))
       .catch((error: unknown) => {
         this.activeChats = undefined;
         throw error;
@@ -202,8 +187,8 @@ export class GameService {
     return (await this.activeChatIds()).has(chatId);
   }
 
-  private async createGameSession(data: Prisma.GameSessionCreateInput): Promise<GameSession> {
-    const session = await this.prisma.gameSession.create({ data });
+  private async createGameSession(data: Parameters<PrismaService["createGameSession"]>[0]): Promise<GameSession> {
+    const session = await this.prisma.createGameSession(data);
     (await this.activeChatIds()).add(session.chatId);
     return session;
   }
