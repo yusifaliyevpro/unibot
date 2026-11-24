@@ -4,7 +4,9 @@ import { definePrismaConfig } from "prisma/config";
 
 export default definePrismaConfig({
   orm: defineConfig({
-    contract: "./src/prisma/contract.prisma",
+    contract: "./prisma/contract.prisma",
+    output: "src/prisma",
+    migrations: { dir: "prisma/migrations" },
     db: {
       connection: process.env["DIRECT_URL"]!,
     },

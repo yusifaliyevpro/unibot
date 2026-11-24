@@ -7,8 +7,8 @@ WhatsApp bot for a university class group (AzTU): schedules, lesson reminders, A
 - `pnpm dev` — run locally (scan the WhatsApp QR printed in the terminal)
 - `pnpm test` — Vitest, single run. Use `pnpm vitest run <file>` while working; never start watch mode.
 - `pnpm check` — the final verification (greenly: tsc, oxfmt, oxlint, vitest, build). Run `pnpm fmt` first.
-- `pnpm prisma contract emit` — regenerate `src/prisma/contract.json` / `contract.d.ts` from `src/prisma/contract.prisma`
-- `pnpm prisma migration plan --name <change>` — write a migration under `migrations/app/` from the emitted contract (offline; review its SQL)
+- `pnpm prisma contract emit` — regenerate `src/prisma/contract.json` / `contract.d.ts` from `prisma/contract.prisma`
+- `pnpm prisma migration plan --name <change>` — write a migration under `prisma/migrations/app/` from the emitted contract (offline; review its SQL)
 - `pnpm prisma db migrate` — apply pending migrations (touches the real Neon DB, ask first)
 - `pnpm prisma migration status` — show which migrations the database has applied
 
@@ -36,7 +36,7 @@ WhatsApp bot for a university class group (AzTU): schedules, lesson reminders, A
 - **Only live messages are handled.** History sync is off and messages older than the connection are ignored. The in-memory message store is bounded (20 messages per chat, 100 chats).
 - **Commands:** add new ones to `commands` in `utils.ts`; retired ones are commented out there, not deleted. Keep the help boxes (`src/lib/messages.ts`) and the AI command list (`ai.handler.ts`) in sync.
 - **Game:** messages are handled concurrently, so advancing or ending a game goes through a conditional `updateMany` (first message wins). `GameService` keeps active games in memory; restart the bot after editing `GameSession` rows by hand.
-- **Prisma 8:** the contract is `src/prisma/contract.prisma`; after changing it run `pnpm prisma contract emit` and commit `contract.json` and `contract.d.ts` (there is no `prisma generate`). The shared client is `db` in `src/prisma/db.ts`; queries are plain helpers in `src/prisma/*.ts`, exposed through `PrismaService`. Prisma 8 has no `{ increment }`: pin the old value in the filter and write the new one (see `claimQuestion`). Schema changes always go through migrations (`pnpm prisma contract emit`, `pnpm prisma migration plan --name <change>`, review, `pnpm prisma db migrate`, commit `migrations/`); never use `prisma db update` or `db init` on the Neon DB.
+- **Prisma 8:** the contract is `prisma/contract.prisma` and migrations live in `prisma/migrations/`; after changing the contract run `pnpm prisma contract emit` and commit the emitted `src/prisma/contract.json` and `contract.d.ts` (there is no `prisma generate`). The shared client is `db` in `src/prisma/db.ts`; queries are plain helpers in `src/prisma/*.ts`, exposed through `PrismaService`. Prisma 8 has no `{ increment }`: pin the old value in the filter and write the new one (see `claimQuestion`). Schema changes always go through migrations (`pnpm prisma contract emit`, `pnpm prisma migration plan --name <change>`, review, `pnpm prisma db migrate`, commit `prisma/migrations/`); never use `prisma db update` or `db init` on the Neon DB.
 - **Time zone:** `TIME_ZONE` (`Asia/Baku`, in `constants.ts`) is passed explicitly to Temporal and every `@Cron`, so the process `TZ` doesn't matter. Tests run with `TZ=UTC` to catch code that relies on it.
 - **Dates:** use Temporal, not `Date`. Days are `Temporal.PlainDate` (`today()` in `utils.ts`), moments are `ZonedDateTime` in `TIME_ZONE` (`atTime()`, `toZoned()` for Google Calendar times).
 - **Deploy:** `cmd/deploy.sh` syncs `~/unibot` with `origin/main` and rebuilds the Docker image. The server `.env` must be in Docker `--env-file` format (no quotes, single-line JSON).
